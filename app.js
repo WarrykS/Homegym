@@ -398,6 +398,63 @@ function buildRack(it) {
   const bb = barbell([20, 10]); bb.position.set(0, 1.46, zs[1] + 0.085); g.add(bb);
   return g;
 }
+// Atletica R8 Drift (version disques) : cage 123 cm + section centrale 108 cm + tour à poulie 30 cm,
+// profondeur 123 cm, hauteur 226 cm, tubes 75 x 75 mm. Côté poulie à droite (x+) sauf si it.flip.
+function buildR8Drift(it) {
+  const outer = new THREE.Group(), g = new THREE.Group(); outer.add(g);
+  if (it.flip) g.scale.x = -1;
+  const { w, d, h } = it, fr = M(it.color, 0.45, 0.35), zinc = M('#a3a9b0', 0.35, 0.7), ch = CHROME(), dk = DARK(), p = 0.075;
+  const tw = Math.min(0.3, w * 0.12), cw = Math.min(1.23, (w - tw) * 0.55), x0 = -w / 2;
+  const xc = [x0 + p / 2, x0 + cw - p / 2];            // montants de la cage
+  const xt = w / 2 - tw / 2;                           // axe de la tour
+  const zs = [-d / 2 + p / 2, d / 2 - p / 2];
+  // cage
+  for (const x of xc) {
+    for (const z of zs) g.add(bx(p, h, p, fr, x, h / 2, z));
+    g.add(bx(p, 0.05, d, fr, x, 0.025, 0));
+    g.add(bx(p, p, d, fr, x, h - p / 2, 0));
+    g.add(bx(0.06, 0.11, 0.12, fr, x, 1.38, zs[1] + 0.075));
+    g.add(bx(0.06, 0.11, 0.12, fr, x, 1.0, zs[1] + 0.075));
+    g.add(bx(0.05, 0.05, d - 0.12, zinc, x + (x < xc[1] ? 0.068 : -0.068), 0.62, 0));
+  }
+  for (const z of zs) g.add(bx(cw, p, p, fr, x0 + cw / 2, h - p / 2, z));
+  g.add(bx(cw, 0.05, p, fr, x0 + cw / 2, 0.025, zs[0]));
+  // barre de traction multiprises à l'avant de la cage
+  g.add(cy(0.016, cw - 0.1, ch, 'x', x0 + cw / 2, h - 0.16, zs[1] + 0.13, 14));
+  for (const x of xc) {
+    g.add(bx(0.05, 0.05, 0.16, fr, x, h - 0.16, zs[1] + 0.08));
+    g.add(beam([x + (x < xc[1] ? 0.12 : -0.12), h - 0.16, zs[1] + 0.13], [x + (x < xc[1] ? 0.2 : -0.2), h - 0.3, zs[1] + 0.3], 0.016, ch));
+  }
+  // porte-barres à l'arrière : deux barres rangées debout
+  g.add(bx(0.12, 0.08, 0.16, fr, xc[0] + 0.02, 0.14, zs[0] - 0.02));
+  for (const dx of [-0.03, 0.06]) g.add(cy(0.025, 2.0, ch, 'y', xc[0] + dx, 1.05, zs[0] - 0.04 + dx * 0.4, 12));
+  // barre chargée sur les J-hooks
+  const bb = barbell([20, 10]); bb.position.set(x0 + cw / 2, 1.46, zs[1] + 0.085); g.add(bb);
+  // section centrale : traverses hautes, deuxième barre de traction, longerons au sol, cale-pieds
+  const mx0 = x0 + cw, mx1 = w / 2 - tw, mw = mx1 - mx0, mxc = (mx0 + mx1) / 2;
+  for (const z of zs) { g.add(bx(mw, p, p, fr, mxc, h - p / 2, z)); g.add(bx(mw, 0.05, p, fr, mxc, 0.025, z)); }
+  g.add(cy(0.016, mw, ch, 'x', mxc, h - 0.16, zs[1] + 0.13, 14));
+  const foot = bx(0.3, 0.02, 0.36, M('#2a2b2e', 0.6, 0.3), mx1 - 0.3, 0.12, 0); foot.rotation.z = 0.55; g.add(foot);
+  g.add(bx(0.06, 0.1, 0.4, fr, mx1 - 0.22, 0.05, 0));
+  // tour à poulie (30 cm)
+  for (const z of zs) g.add(bx(p, h, p, fr, xt, h / 2, z));
+  g.add(bx(p, p, d, fr, xt, h - p / 2, 0));
+  g.add(bx(tw, 0.05, d, fr, xt, 0.025, 0));
+  for (const dz of [-0.12, 0.12]) g.add(cy(0.012, h - 0.25, ch, 'y', xt, (h - 0.25) / 2 + 0.08, dz, 8));
+  // chariot de charge à disques
+  g.add(bx(0.2, 0.06, 0.32, fr, xt, 0.16, 0));
+  g.add(cy(0.025, 0.36, ch, 'y', xt, 0.37, 0, 12));
+  for (let i = 0; i < 3; i++) { const pl = plate(i ? 10 : 20, 'y'); pl.position.set(xt, 0.22 + i * 0.05, 0); g.add(pl); }
+  g.add(mesh(new THREE.SphereGeometry(0.06, 16, 10), M('#e9e9e6', 0.4), xt, h - 0.12, 0));
+  // deux poulies indépendantes, réglables en hauteur, tournées vers la section centrale
+  for (const [z, y] of [[zs[0], 1.75], [zs[1], 0.65]]) {
+    g.add(bx(0.11, 0.18, 0.11, fr, xt - 0.07, y, z));
+    g.add(cy(0.045, 0.025, M('#e9e9e6', 0.4), 'z', xt - 0.14, y - 0.06, z, 18));
+    g.add(beam([xt - 0.14, y - 0.1, z], [xt - 0.16, y - 0.3, z], 0.004, dk, 4));
+    const hdl = mesh(new THREE.TorusGeometry(0.05, 0.011, 8, 18), dk, xt - 0.16, y - 0.36, z); hdl.rotation.y = Math.PI / 2; g.add(hdl);
+  }
+  return outer;
+}
 function buildWallRack(it) {
   const g = new THREE.Group(), { w, d, h } = it, fr = M(it.color, 0.45, 0.35), p = 0.075;
   const xs = [-w / 2 + p / 2, w / 2 - p / 2], zb = -d / 2 + 0.02, zf = d / 2 - p / 2;
@@ -702,9 +759,10 @@ function buildFridge(it) {
 
 // zone : espace d'usage devant (f), derrière (b) et sur les côtés (s), en mètres
 const CATALOG = {
+  r8drift: { name: 'Atletica R8 Drift', cat: 'force', w: 2.61, d: 1.23, h: 2.26, price: 1679, color: '#1b1c1f', zone: { f: 1.0, b: 0.3, s: 0.3 }, pullup: true, flip: true, build: buildR8Drift },
   rack: { name: 'Power rack', cat: 'force', w: 1.22, d: 1.4, h: 2.3, price: 690, color: '#1c1d20', zone: { f: 1.0, b: 0.2, s: 0.5 }, pullup: true, build: buildRack },
   wallrack: { name: 'Rack mural repliable', cat: 'force', w: 1.2, d: 0.56, h: 2.2, price: 520, color: '#1c1d20', zone: { f: 1.4, b: 0, s: 0.55 }, wall: true, pullup: true, build: buildWallRack },
-  bench: { name: 'Banc réglable', cat: 'force', w: 0.6, d: 1.35, h: 0.45, price: 260, color: '#1e2024', zone: { f: 0.4, b: 0.4, s: 0.5 }, zoneOk: true, build: buildBench },
+  bench: { name: 'Banc réglable', cat: 'force', w: 0.6, d: 1.35, h: 0.45, price: 260, color: '#1e2024', zone: { f: 0.3, b: 0.3, s: 0.5 }, zoneOk: true, build: buildBench },
   cable: { name: 'Poulie vis-à-vis', cat: 'force', w: 3.4, d: 0.9, h: 2.25, price: 1890, color: '#2a2c30', zone: { f: 1.6, b: 0, s: 0.2 }, build: buildCable },
   legpress: { name: 'Presse à cuisses 45°', cat: 'force', w: 1.5, d: 2.1, h: 1.45, price: 1290, color: '#1c1d20', zone: { f: 0.3, b: 0.5, s: 0.6 }, build: buildLegpress },
   platform: { name: "Plateforme d'haltérophilie", cat: 'libre', w: 2.44, d: 2.44, h: 0.05, price: 380, color: '#c8975a', flat: true, build: buildPlatform },
@@ -751,17 +809,17 @@ const PRESETS = {
     floor: { mat: 'rubber', color: '#2e2f33' }, light: 'day', wallMode: 'auto', opts: baseOpts(),
     openings: [mkOpen('garage', 'S', 0.65, { w: 4.5, h: 2.1 }), mkOpen('door', 'E', 4.45), mkOpen('window', 'W', 1.0, { w: 1.2, h: 0.9, sill: 1.3 })],
     items: [
-      mkItem('platform', -1.25, -1.55),
-      mkItem('rack', -1.25, -1.72),
-      mkItem('mirror', 1.4, -2.785, 0),
-      mkItem('bench', 1.15, -1.45, 90, { color: '#a3161f' }),
+      mkItem('platform', -1.67, -1.55),
+      mkItem('r8drift', -1.0, -2.12),
+      mkItem('mirror', 1.65, -2.785, 0),
+      mkItem('bench', 1.33, -1.45, 90, { color: '#a3161f' }),
       mkItem('dumbbells', 2.625, -0.25, 90),
       mkItem('tv', 2.87, -0.25, 90),
       mkItem('kettlebells', 2.72, 1.15, 90),
       mkItem('rower', -2.45, 1.2, 0),
       mkItem('bike', 1.35, 1.5, 180),
       mkItem('fan', 0.05, 1.9, 200),
-      mkItem('plant', 2.55, -2.45),
+      mkItem('plant', 2.6, -2.5),
       mkItem('bag', 0.05, 0.0),
     ],
   }),
@@ -825,6 +883,7 @@ function normalizeDoc(d) {
     wallMode: ['auto', 'low', 'full'].includes(d?.wallMode) ? d.wallMode : 'auto',
     opts: { ...baseOpts(), ...(d?.opts || {}) },
     openings: [], items: [],
+    migr: Array.isArray(d?.migr) ? d.migr : ['r8drift'],
   };
   for (const s of SIDES) {
     const wl = d?.walls?.[s];
@@ -838,12 +897,45 @@ function normalizeDoc(d) {
   }
   for (const it of Array.isArray(d?.items) ? d.items : []) {
     const def = CATALOG[it?.type]; if (!def) continue;
-    out.items.push({ id: String(it.id || uid()), type: it.type, x: num(it.x, 0), z: num(it.z, 0), rot: num(it.rot, 0), w: clamp(num(it.w, def.w), 0.01, 8), d: clamp(num(it.d, def.d), 0.01, 8), h: clamp(num(it.h, def.h), 0.005, 4.4), elev: clamp(num(it.elev, def.elev || 0), 0, 4), color: /^#[0-9a-f]{6}$/i.test(it.color) ? it.color : def.color });
+    out.items.push({ id: String(it.id || uid()), type: it.type, x: num(it.x, 0), z: num(it.z, 0), rot: num(it.rot, 0), w: clamp(num(it.w, def.w), 0.01, 8), d: clamp(num(it.d, def.d), 0.01, 8), h: clamp(num(it.h, def.h), 0.005, 4.4), elev: clamp(num(it.elev, def.elev || 0), 0, 4), color: /^#[0-9a-f]{6}$/i.test(it.color) ? it.color : def.color, ...(it.flip ? { flip: true } : {}) });
   }
   return out;
 }
 function save() { try { localStorage.setItem(STORE_KEY, JSON.stringify(doc)); } catch { /* stockage indisponible */ } }
-function loadSaved() { try { const s = localStorage.getItem(STORE_KEY); return s ? normalizeDoc(JSON.parse(s)) : null; } catch { return null; } }
+function loadSaved() {
+  try {
+    const s = localStorage.getItem(STORE_KEY); if (!s) return null;
+    const raw = JSON.parse(s);
+    const d = normalizeDoc(raw);
+    if (!Array.isArray(raw.migr)) d.migr = [];
+    return d;
+  } catch { return null; }
+}
+// Remplace le power rack d'un projet existant par l'Atletica R8 Drift : la cage reprend la place de l'ancien rack,
+// et la tour à poulie part du côté où elle gêne le moins.
+function migrateRackToR8() {
+  const racks = doc.items.filter((i) => i.type === 'rack');
+  for (const old of racks) {
+    const idx = doc.items.indexOf(old);
+    let best = null;
+    for (const flip of [false, true]) {
+      const n = mkItem('r8drift', 0, 0, old.rot, flip ? { flip: true } : {});
+      const cw = Math.min(1.23, (n.w - Math.min(0.3, n.w * 0.12)) * 0.55);
+      const lx = (flip ? 1 : -1) * (n.w / 2 - cw / 2);   // centre de la cage dans le repère du R8
+      const lz = n.d / 2 - old.d / 2;                       // dos de la cage aligné sur celui de l'ancien rack
+      const th = -old.rot * DEG, c = Math.cos(th), sn = Math.sin(th);
+      n.x = old.x - lx * c + lz * sn; n.z = old.z + lx * sn + lz * c;
+      clampItem(n);
+      doc.items[idx] = n;
+      const res = analyze();
+      doc.items[idx] = old;
+      const score = (res.bad.has(n.id) ? 100 : 0) + (res.items[n.id] || []).length * 10 + res.bad.size + Math.hypot(n.x - old.x, n.z - old.z);
+      if (!best || score < best.score) best = { n, score };
+    }
+    doc.items[idx] = best.n;
+  }
+  return racks.length;
+}
 function commit() {
   const s = JSON.stringify(doc);
   if (hist.stack[hist.idx] === s) return;
@@ -2118,6 +2210,7 @@ function renderInspector() {
         <button type="button" class="btn" data-rot="15">+15°</button><button type="button" class="btn" data-rot="90" title="Touche R">+90°</button></div>
       <div class="insp-grid two"><label>Angle (°)<input type="number" data-f="rot" value="${Math.round(s.rot)}" step="1"></label><label>Couleur<input type="color" data-f="color" value="${s.color}"></label></div>`}
       ${def.wall ? `<div class="insp-row"><span class="lbl">Couleur</span><input type="color" data-f="color" value="${s.color}"></div>` : ''}
+      ${def.flip ? `<button type="button" class="btn" data-act="flip">Mettre la poulie à ${s.flip ? 'droite' : 'gauche'}</button>` : ''}
       ${warns.length ? `<ul class="warns">${warns.map((w) => `<li class="${w.lvl === 'soft' ? 'soft' : ''}">${esc(w.msg)}</li>`).join('')}</ul>` : '<p class="goodnote">Bien placé, rien à signaler.</p>'}
       <p class="hint">Glisse l'objet dans la vue, ou clique une cote jaune pour taper la distance au mur.</p>
       <div class="insp-actions"><button type="button" class="btn" data-act="dup">Dupliquer</button><button type="button" class="btn danger" data-act="del">Supprimer</button></div>`;
@@ -2215,6 +2308,7 @@ function bindUI() {
     if (a === 'dup') duplicateSel();
     if (a === 'del') deleteSel();
     if (a === 'toggle') toggleOpening(s);
+    if (a === 'flip') { s.flip = !s.flip; if (!s.flip) delete s.flip; rebuildItem(s); showSelBox(); updateCotes(); commit(); renderInspector(); }
   });
   insp.addEventListener('input', (e) => {
     const s = findSel(); if (!s) return;
@@ -2376,6 +2470,8 @@ function start() {
   el.addEventListener('contextmenu', (e) => e.preventDefault());
   makeControls();
   doc = loadSaved() || normalizeDoc(PRESETS.double());
+  const legacy = !doc.migr.includes('r8drift');
+  if (legacy) doc.migr.push('r8drift');
   bindUI();
   renderCatalog();
   rebuildAll();
@@ -2388,6 +2484,11 @@ function start() {
   ui.view = '';
   setView('iso');
   commit();
+  if (legacy) {
+    const n = migrateRackToR8();
+    rebuildAll(); commit();
+    if (n) setTimeout(() => toast("Power rack remplacé par l'Atletica R8 Drift · Ctrl+Z pour revenir"), 400);
+  }
   onResize(); fitView();
   frame();
   makeThumbs();
