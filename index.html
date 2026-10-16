@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Home Gym Studio</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Dessine ta salle de sport à la maison : murs, sol, porte de garage, machines, cotes, vue iso et visite en 3D.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;800&family=Barlow:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<link rel="stylesheet" href="style.css?v=1">
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div class="brand">
+      <svg class="brand-plate" viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="19" fill="var(--plate-red)"/><circle cx="20" cy="20" r="13" fill="none" stroke="var(--plate-ink)" stroke-opacity=".35" stroke-width="1.5"/><circle cx="20" cy="20" r="5.5" fill="var(--chrome)"/><circle cx="20" cy="20" r="2.4" fill="var(--plate-ink)"/></svg>
+      <div class="brand-text"><b>Home Gym</b><span>Studio</span></div>
+    </div>
+    <div class="views" role="tablist" aria-label="Choix de la vue">
+      <button type="button" role="tab" data-view="plan" title="Plan vu de dessus (touche 1)">Plan</button>
+      <button type="button" role="tab" data-view="iso" title="Vue isométrique (touche 2)">Iso</button>
+      <button type="button" role="tab" data-view="orbit" title="3D libre (touche 3)">3D</button>
+      <button type="button" role="tab" data-view="walk" title="Visite à la première personne (touche 4)">Visite</button>
+    </div>
+    <div class="tools">
+      <button type="button" class="icon-btn" id="btnUndo" title="Annuler (Ctrl+Z)" aria-label="Annuler"><svg viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></svg></button>
+      <button type="button" class="icon-btn" id="btnRedo" title="Rétablir (Ctrl+Y)" aria-label="Rétablir"><svg viewBox="0 0 24 24"><path d="m15 14 5-5-5-5"/><path d="M20 9H10a6 6 0 0 0 0 12h3"/></svg></button>
+      <button type="button" class="btn" id="btnShot" title="Capture de la vue"><svg viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg><span>Capture</span></button>
+    </div>
+  </header>
+
+  <div class="main">
+    <aside class="panel" aria-label="Réglages">
+      <nav class="tabs" role="tablist">
+        <button type="button" data-tab="room" class="on">Pièce</button>
+        <button type="button" data-tab="walls">Murs</button>
+        <button type="button" data-tab="openings">Ouvertures</button>
+        <button type="button" data-tab="gear">Équipement</button>
+        <button type="button" data-tab="project">Projet</button>
+      </nav>
+
+      <section class="pane on" data-pane="room">
+        <div class="group">
+          <h3>Modèle de départ</h3>
+          <div class="row">
+            <select id="presetSel" aria-label="Modèle de départ">
+              <option value="double">Garage double équipé (5,8 × 5,6 m)</option>
+              <option value="simple">Garage simple (3 × 6 m)</option>
+              <option value="chambre">Chambre d'amis (3,5 × 3 m)</option>
+              <option value="soussol">Sous-sol bas de plafond (4,5 × 4 m)</option>
+              <option value="vide">Pièce vide aux mêmes dimensions</option>
+            </select>
+            <button type="button" class="btn" id="btnPreset">Charger</button>
+          </div>
+        </div>
+
+        <div class="group">
+          <h3>Dimensions intérieures <small>en cm</small></h3>
+          <div class="dim-field">
+            <label for="roomW">Largeur <small>Ouest → Est</small></label>
+            <input type="range" id="roomWr" min="200" max="1400" step="5" aria-label="Largeur">
+            <input type="number" id="roomW" min="200" max="1400" step="5">
+          </div>
+          <div class="dim-field">
+            <label for="roomD">Profondeur <small>Nord → Sud</small></label>
+            <input type="range" id="roomDr" min="200" max="1400" step="5" aria-label="Profondeur">
+            <input type="number" id="roomD" min="200" max="1400" step="5">
+          </div>
+          <div class="dim-field">
+            <label for="roomH">Hauteur sous plafond</label>
+            <input type="range" id="roomHr" min="200" max="450" step="5" aria-label="Hauteur">
+            <input type="number" id="roomH" min="200" max="450" step="5">
+          </div>
+          <p class="hint">Astuce : clique sur une cote jaune dans la vue pour taper la valeur exacte.</p>
+        </div>
+
+        <div class="group">
+          <h3>Sol</h3>
+          <div class="swatches" id="floorSwatches"></div>
+          <label class="color-field"><span>Teinte</span><input type="color" id="floorColor"></label>
+        </div>
+
+        <div class="group">
+          <h3>Ambiance lumineuse</h3>
+          <div class="seg" id="lightSeg">
+            <button type="button" data-light="day">Jour</button>
+            <button type="button" data-light="neon">Néons</button>
+            <button type="button" data-light="rgb">Soirée RGB</button>
+          </div>
+        </div>
+
+        <div class="group">
+          <h3>Affichage</h3>
+          <label class="sel-field"><span>Murs côté caméra</span>
+            <select id="wallMode">
+              <option value="auto">Coupés automatiquement</option>
+              <option value="low">Tous coupés bas</option>
+              <option value="full">Pleine hauteur</option>
+            </select>
+          </label>
+          <div class="toggles">
+            <label><input type="checkbox" id="optCotes"> Cotes</label>
+            <label><input type="checkbox" id="optZones"> Zones d'usage</label>
+            <label><input type="checkbox" id="optGrid"> Grille 50 cm</label>
+            <label><input type="checkbox" id="optSnap"> Aimant 5 cm</label>
+            <label><input type="checkbox" id="optLabels"> Noms sur le plan</label>
+          </div>
+        </div>
+      </section>
+
+      <section class="pane" data-pane="walls">
+        <div class="group">
+          <h3>Revêtement des murs</h3>
+          <p class="hint">Clique directement sur un mur dans la vue pour le retrouver ici.</p>
+        </div>
+        <div id="wallCards"></div>
+      </section>
+
+      <section class="pane" data-pane="openings">
+        <div class="group">
+          <h3>Ajouter une ouverture</h3>
+          <div class="add-open">
+            <button type="button" class="btn" data-add-open="garage"><svg viewBox="0 0 24 24"><path d="M3 21V8l9-5 9 5v13"/><path d="M6 21v-9h12v9M6 15h12M6 18h12"/></svg>Porte de garage</button>
+            <button type="button" class="btn" data-add-open="door"><svg viewBox="0 0 24 24"><path d="M6 21V3h12v18M3 21h18"/><circle cx="15" cy="12" r="1"/></svg>Porte</button>
+            <button type="button" class="btn" data-add-open="window"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16"/><path d="M12 4v16M4 12h16"/></svg>Fenêtre</button>
+          </div>
+          <p class="hint">Fais glisser une ouverture le long de son mur, ou tape ses cotes.</p>
+        </div>
+        <div class="group">
+          <h3>Ouvertures de la pièce</h3>
+          <ul class="list" id="openList"></ul>
+        </div>
+      </section>
+
+      <section class="pane" data-pane="gear">
+        <div class="group">
+          <h3>Catalogue</h3>
+          <p class="hint">Clique pour ajouter, ou fais glisser sur la vue. Les dimensions sont modifiables ensuite.</p>
+        </div>
+        <div id="catalog"></div>
+        <div class="group">
+          <h3>Dans ta salle</h3>
+          <ul class="list" id="itemList"></ul>
+        </div>
+      </section>
+
+      <section class="pane" data-pane="project">
+        <div class="group">
+          <h3>Nom du projet</h3>
+          <input type="text" id="projName" maxlength="60" aria-label="Nom du projet">
+        </div>
+        <div class="group">
+          <h3>Bilan</h3>
+          <dl class="stats" id="stats"></dl>
+          <p class="hint">Prix indicatifs d'équipement neuf milieu de gamme, pour se faire une idée du budget.</p>
+        </div>
+        <div class="group">
+          <h3>Contrôles</h3>
+          <ul class="checks" id="checkList"></ul>
+        </div>
+        <div class="group">
+          <h3>Sauvegarde</h3>
+          <p class="hint">Ton projet est enregistré automatiquement dans ce navigateur.</p>
+          <div class="btn-col">
+            <button type="button" class="btn" id="btnExport">Télécharger le projet (.json)</button>
+            <button type="button" class="btn" id="btnCopy">Copier le code du projet</button>
+            <button type="button" class="btn" id="btnImport">Importer un projet</button>
+            <input type="file" id="fileImport" accept=".json,application/json" hidden>
+          </div>
+        </div>
+        <div class="group">
+          <h3>Raccourcis</h3>
+          <dl class="keys">
+            <dt>1 2 3 4</dt><dd>Plan, Iso, 3D, Visite</dd>
+            <dt>R / Maj+R</dt><dd>Tourner de 90° / 15°</dd>
+            <dt>Ctrl+D</dt><dd>Dupliquer</dd>
+            <dt>Suppr</dt><dd>Supprimer la sélection</dd>
+            <dt>Alt + glisser</dt><dd>Déplacer sans aimant</dd>
+            <dt>Ctrl+Z / Ctrl+Y</dt><dd>Annuler / rétablir</dd>
+            <dt>ZQSD ou flèches</dt><dd>Marcher pendant la visite</dd>
+            <dt>O</dt><dd>Ouvrir la porte la plus proche</dd>
+          </dl>
+        </div>
+      </section>
+    </aside>
+
+    <section class="stage" id="stage">
+      <div class="loading" id="loading"><div class="spinner"></div>Chargement du moteur 3D…</div>
+      <div class="status" id="status"></div>
+      <aside class="inspector" id="inspector" hidden></aside>
+      <div class="view-tools" id="viewTools">
+        <button type="button" class="icon-btn" id="btnRotL" title="Pivoter la vue de 90°" aria-label="Pivoter à gauche"><svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 3v6h6"/></svg></button>
+        <button type="button" class="icon-btn" id="btnRotR" title="Pivoter la vue de 90°" aria-label="Pivoter à droite"><svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg></button>
+        <button type="button" class="icon-btn" id="btnFit" title="Recentrer la vue" aria-label="Recentrer"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+      </div>
+      <div class="walk-hud" id="walkHud" hidden>
+        <div class="crosshair"></div>
+        <div class="walk-help" id="walkHelp">
+          <b>Visite</b>
+          <span class="desk">ZQSD ou flèches pour marcher, Maj pour courir. Glisse la souris pour regarder, double-clic pour la capturer.</span>
+          <span class="touch">Joystick à gauche pour marcher, glisse ailleurs pour regarder.</span>
+          <span>Touche O : ouvrir la porte la plus proche.</span>
+        </div>
+        <div class="walk-actions">
+          <button type="button" class="btn" id="btnDoorToggle">Ouvrir / fermer la porte</button>
+          <label class="eye"><span>Yeux à</span><input type="range" id="eyeH" min="120" max="200" step="1" value="168"><output id="eyeOut">168 cm</output></label>
+        </div>
+        <div class="joy" id="joy"><div class="knob"></div></div>
+      </div>
+      <div class="toast" id="toast" role="status" hidden></div>
+    </section>
+  </div>
+</div>
+
+<div class="modal" id="modal" hidden>
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <header><h2 id="modalTitle"></h2><button type="button" class="icon-btn" id="modalClose" aria-label="Fermer"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button></header>
+    <div class="modal-body" id="modalBody"></div>
+  </div>
+</div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+<script type="module" src="app.js?v=1"></script>
+</body>
+</html>
