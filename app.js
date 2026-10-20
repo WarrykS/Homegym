@@ -475,6 +475,49 @@ function buildR8Drift(it) {
   g.add(bx(0.08, 0.05, 0.42, fr, sx - 0.04, 0.025, tz + 0.42));
   return outer;
 }
+// Atletica R8 Bradley Moyen à charge libre : cage 4 montants (75 × 75 mm) avec traverse renforcée à logo,
+// barre de traction, J-hooks, bras de sécurité de 61 cm en avancée, et une colonne de poulie sur chaque côté :
+// chariot à disques guidé par deux tiges, cornes de chargement vers l'extérieur, poulie réglable sur le montant avant.
+function buildBradley(it) {
+  const g = new THREE.Group(), { w, d, h } = it, fr = M(it.color, 0.45, 0.35), zinc = M('#a3a9b0', 0.35, 0.7), ch = CHROME(), dk = DARK(), p = 0.075;
+  const white = M('#e9e9e6', 0.4), cable = M('#111214', 0.6);
+  const xs = [-w / 2 + p / 2, w / 2 - p / 2], zs = [-d / 2 + p / 2, d / 2 - p / 2], uh = h - 0.05;
+  for (const x of xs) {
+    const out = Math.sign(x);
+    for (const z of zs) { g.add(bx(p, uh, p, fr, x, uh / 2, z)); g.add(bx(0.12, 0.02, 0.24, fr, x, 0.01, z)); }
+    g.add(bx(p, p, d, fr, x, h - p / 2, 0));
+    // J-hooks et bras de sécurité (61 cm devant les montants avant)
+    g.add(bx(0.06, 0.11, 0.12, fr, x, 1.38, zs[1] + 0.075));
+    g.add(bx(0.07, 0.07, 0.61, zinc, x, 0.7, zs[1] + p / 2 + 0.305));
+    g.add(bx(0.09, 0.05, 0.05, fr, x, 0.765, zs[1] + p / 2 + 0.58));
+    // colonne de poulie latérale : deux tiges de guidage, chariot, cornes vers l'extérieur
+    for (const dz of [-0.11, 0.11]) g.add(cy(0.011, uh - 0.25, ch, 'y', x, (uh - 0.25) / 2 + 0.08, dz, 8));
+    g.add(bx(0.09, 0.04, 0.3, fr, x, 0.06, 0));
+    g.add(bx(0.09, 0.04, 0.3, fr, x, uh - 0.2, 0));
+    g.add(bx(0.1, 0.22, 0.26, fr, x, 0.28, 0));
+    g.add(cy(0.025, 0.36, ch, 'x', x + out * 0.23, 0.32, 0, 12));
+    for (let i = 0; i < 2; i++) { const pl = plate(i ? 10 : 20, 'x'); pl.position.set(x + out * (0.12 + i * 0.05), 0.32, 0); g.add(pl); }
+    // poulies hautes et câble
+    for (const z of [-0.05, zs[1] - 0.12]) g.add(cy(0.045, 0.025, white, 'x', x - out * 0.0, h - 0.13, z, 18));
+    g.add(cy(0.004, uh - 0.2 - 0.45, cable, 'y', x, (uh - 0.2 + 0.45) / 2, -0.05, 4));
+    g.add(beam([x, h - 0.13, -0.05], [x, h - 0.13, zs[1] - 0.12], 0.004, cable, 4));
+    // poulie réglable sur le montant avant, tournée vers l'intérieur
+    g.add(bx(0.13, 0.2, 0.13, fr, x - out * 0.1, 1.75, zs[1]));
+    g.add(cy(0.045, 0.025, white, 'z', x - out * 0.17, 1.66, zs[1], 18));
+    g.add(beam([x, h - 0.15, zs[1] - 0.06], [x - out * 0.1, 1.86, zs[1]], 0.004, cable, 4));
+    g.add(beam([x - out * 0.17, 1.62, zs[1]], [x - out * 0.19, 1.45, zs[1]], 0.004, cable, 4));
+    const hdl = mesh(new THREE.TorusGeometry(0.05, 0.011, 8, 18), dk, x - out * 0.19, 1.4, zs[1]); g.add(hdl);
+  }
+  // traverses hautes : renforcée avec logo à l'avant, simple à l'arrière ; barre de traction (monkey bar)
+  g.add(bx(w, p, p, fr, 0, h - p / 2, zs[0]));
+  g.add(bx(w - 2 * p, 0.16, 0.05, fr, 0, h - 0.11, zs[1]));
+  g.add(bx(0.32, 0.035, 0.002, white, 0, h - 0.11, zs[1] + 0.027));
+  g.add(bx(w, p, p, fr, 0, h - p / 2, zs[1]));
+  for (const x of xs) g.add(bx(0.05, 0.05, 0.22, fr, x, h - 0.01, zs[1] + 0.1));
+  g.add(cy(0.016, w + 0.06, ch, 'x', 0, h - 0.01, zs[1] + 0.2, 14));
+  const bb = barbell([20, 10]); bb.position.set(0, 1.46, zs[1] + 0.085); g.add(bb);
+  return g;
+}
 function buildWallRack(it) {
   const g = new THREE.Group(), { w, d, h } = it, fr = M(it.color, 0.45, 0.35), p = 0.075;
   const xs = [-w / 2 + p / 2, w / 2 - p / 2], zb = -d / 2 + 0.02, zf = d / 2 - p / 2;
@@ -780,6 +823,7 @@ function buildFridge(it) {
 // zone : espace d'usage devant (f), derrière (b) et sur les côtés (s), en mètres
 const CATALOG = {
   r8drift: { name: 'Atletica R8 Drift', cat: 'force', w: 2.61, d: 1.23, h: 2.26, price: 1679, priceOf: (it) => (it.variant === 'stack' ? 2069 : 1679), color: '#1b1c1f', zone: { f: 1.0, b: 0.3, s: 0.3 }, pullup: true, flip: true, variants: true, build: buildR8Drift },
+  bradley: { name: 'Atletica R8 Bradley Moyen', cat: 'force', w: 1.23, d: 1.23, h: 2.31, price: 1899, color: '#1b1c1f', zone: { f: 1.2, b: 0.3, s: 0.45 }, pullup: true, build: buildBradley },
   rack: { name: 'Power rack', cat: 'force', w: 1.22, d: 1.4, h: 2.3, price: 690, color: '#1c1d20', zone: { f: 1.0, b: 0.2, s: 0.5 }, pullup: true, build: buildRack },
   wallrack: { name: 'Rack mural repliable', cat: 'force', w: 1.2, d: 0.56, h: 2.2, price: 520, color: '#1c1d20', zone: { f: 1.4, b: 0, s: 0.55 }, wall: true, pullup: true, build: buildWallRack },
   bench: { name: 'Banc réglable', cat: 'force', w: 0.6, d: 1.35, h: 0.45, price: 260, color: '#1e2024', zone: { f: 0.3, b: 0.3, s: 0.5 }, zoneOk: true, build: buildBench },
