@@ -398,61 +398,81 @@ function buildRack(it) {
   const bb = barbell([20, 10]); bb.position.set(0, 1.46, zs[1] + 0.085); g.add(bb);
   return g;
 }
-// Atletica R8 Drift (version disques) : cage 123 cm + section centrale 108 cm + tour à poulie 30 cm,
-// profondeur 123 cm, hauteur 226 cm, tubes 75 x 75 mm. Côté poulie à droite (x+) sauf si it.flip.
+// Atletica R8 Drift : cage 123 × 123 cm + section centrale ouverte de 108 cm + demi-tour à poulie de 30 cm.
+// La tour est une colonne unique en bout de rack, avec un bras de tirage vertical en haut, une poulie réglable,
+// et à sa base (côté cage) la charge : chariot à disques, ou pile de 95 kg pour la version PRO (it.variant = 'stack').
+// Hauteur 226 cm, tubes 75 × 75 mm. Tour à droite (x+) sauf si it.flip.
 function buildR8Drift(it) {
   const outer = new THREE.Group(), g = new THREE.Group(); outer.add(g);
   if (it.flip) g.scale.x = -1;
   const { w, d, h } = it, fr = M(it.color, 0.45, 0.35), zinc = M('#a3a9b0', 0.35, 0.7), ch = CHROME(), dk = DARK(), p = 0.075;
-  const tw = Math.min(0.3, w * 0.12), cw = Math.min(1.23, (w - tw) * 0.55), x0 = -w / 2;
-  const xc = [x0 + p / 2, x0 + cw - p / 2];            // montants de la cage
-  const xt = w / 2 - tw / 2;                           // axe de la tour
+  const white = M('#e9e9e6', 0.4), cable = M('#111214', 0.6);
+  const half = Math.min(0.3, w * 0.12), cw = Math.min(1.23, (w - half) * 0.55), x0 = -w / 2;
+  const xc = [x0 + p / 2, x0 + cw - p / 2];
   const zs = [-d / 2 + p / 2, d / 2 - p / 2];
-  // cage
+  const ch_h = h - 0.04;
+  // ---- cage
   for (const x of xc) {
-    for (const z of zs) g.add(bx(p, h, p, fr, x, h / 2, z));
-    g.add(bx(p, 0.05, d, fr, x, 0.025, 0));
-    g.add(bx(p, p, d, fr, x, h - p / 2, 0));
+    const inner = x < xc[1] ? 1 : -1;
+    for (const z of zs) g.add(bx(p, ch_h, p, fr, x, ch_h / 2, z));
+    g.add(bx(p + 0.03, 0.04, d + 0.06, fr, x, 0.02, 0));
+    g.add(bx(p, p, d, fr, x, ch_h - p / 2, 0));
     g.add(bx(0.06, 0.11, 0.12, fr, x, 1.38, zs[1] + 0.075));
-    g.add(bx(0.06, 0.11, 0.12, fr, x, 1.0, zs[1] + 0.075));
-    g.add(bx(0.05, 0.05, d - 0.12, zinc, x + (x < xc[1] ? 0.068 : -0.068), 0.62, 0));
+    g.add(bx(0.06, 0.11, 0.12, fr, x, 1.0, zs[0] + 0.075));
+    // bras de sécurité vers l'avant (accessoires avant, hors profondeur de 123 cm)
+    g.add(bx(0.06, 0.06, 0.5, zinc, x, 0.55, zs[1] + 0.29));
+    g.add(bx(0.05, 0.05, d - 0.12, zinc, x + inner * 0.068, 0.62, 0));
   }
-  for (const z of zs) g.add(bx(cw, p, p, fr, x0 + cw / 2, h - p / 2, z));
-  g.add(bx(cw, 0.05, p, fr, x0 + cw / 2, 0.025, zs[0]));
-  // barre de traction multiprises à l'avant de la cage
-  g.add(cy(0.016, cw - 0.1, ch, 'x', x0 + cw / 2, h - 0.16, zs[1] + 0.13, 14));
-  for (const x of xc) {
-    g.add(bx(0.05, 0.05, 0.16, fr, x, h - 0.16, zs[1] + 0.08));
-    g.add(beam([x + (x < xc[1] ? 0.12 : -0.12), h - 0.16, zs[1] + 0.13], [x + (x < xc[1] ? 0.2 : -0.2), h - 0.3, zs[1] + 0.3], 0.016, ch));
-  }
+  for (const z of zs) g.add(bx(cw, p, p, fr, x0 + cw / 2, ch_h - p / 2, z));
+  g.add(bx(cw, 0.04, p, fr, x0 + cw / 2, 0.02, zs[0]));
+  // barre de traction multiprises en avancée à l'avant
+  const pz = zs[1] + 0.2, py = ch_h - 0.02;
+  for (const x of xc) g.add(bx(0.05, 0.05, 0.26, fr, x, py, zs[1] + 0.1));
+  g.add(cy(0.016, cw + 0.04, ch, 'x', x0 + cw / 2, py, pz, 14));
+  for (const k of [0.3, 0.7]) g.add(beam([x0 + cw * k, py, pz], [x0 + cw * k + (k < 0.5 ? -0.08 : 0.08), py - 0.1, pz + 0.16], 0.016, ch));
   // porte-barres à l'arrière : deux barres rangées debout
   g.add(bx(0.12, 0.08, 0.16, fr, xc[0] + 0.02, 0.14, zs[0] - 0.02));
   for (const dx of [-0.03, 0.06]) g.add(cy(0.025, 2.0, ch, 'y', xc[0] + dx, 1.05, zs[0] - 0.04 + dx * 0.4, 12));
-  // barre chargée sur les J-hooks
   const bb = barbell([20, 10]); bb.position.set(x0 + cw / 2, 1.46, zs[1] + 0.085); g.add(bb);
-  // section centrale : traverses hautes, deuxième barre de traction, longerons au sol, cale-pieds
-  const mx0 = x0 + cw, mx1 = w / 2 - tw, mw = mx1 - mx0, mxc = (mx0 + mx1) / 2;
-  for (const z of zs) { g.add(bx(mw, p, p, fr, mxc, h - p / 2, z)); g.add(bx(mw, 0.05, p, fr, mxc, 0.025, z)); }
-  g.add(cy(0.016, mw, ch, 'x', mxc, h - 0.16, zs[1] + 0.13, 14));
-  const foot = bx(0.3, 0.02, 0.36, M('#2a2b2e', 0.6, 0.3), mx1 - 0.3, 0.12, 0); foot.rotation.z = 0.55; g.add(foot);
-  g.add(bx(0.06, 0.1, 0.4, fr, mx1 - 0.22, 0.05, 0));
-  // tour à poulie (30 cm)
-  for (const z of zs) g.add(bx(p, h, p, fr, xt, h / 2, z));
-  g.add(bx(p, p, d, fr, xt, h - p / 2, 0));
-  g.add(bx(tw, 0.05, d, fr, xt, 0.025, 0));
-  for (const dz of [-0.12, 0.12]) g.add(cy(0.012, h - 0.25, ch, 'y', xt, (h - 0.25) / 2 + 0.08, dz, 8));
-  // chariot de charge à disques
-  g.add(bx(0.2, 0.06, 0.32, fr, xt, 0.16, 0));
-  g.add(cy(0.025, 0.36, ch, 'y', xt, 0.37, 0, 12));
-  for (let i = 0; i < 3; i++) { const pl = plate(i ? 10 : 20, 'y'); pl.position.set(xt, 0.22 + i * 0.05, 0); g.add(pl); }
-  g.add(mesh(new THREE.SphereGeometry(0.06, 16, 10), M('#e9e9e6', 0.4), xt, h - 0.12, 0));
-  // deux poulies indépendantes, réglables en hauteur, tournées vers la section centrale
-  for (const [z, y] of [[zs[0], 1.75], [zs[1], 0.65]]) {
-    g.add(bx(0.11, 0.18, 0.11, fr, xt - 0.07, y, z));
-    g.add(cy(0.045, 0.025, M('#e9e9e6', 0.4), 'z', xt - 0.14, y - 0.06, z, 18));
-    g.add(beam([xt - 0.14, y - 0.1, z], [xt - 0.16, y - 0.3, z], 0.004, dk, 4));
-    const hdl = mesh(new THREE.TorusGeometry(0.05, 0.011, 8, 18), dk, xt - 0.16, y - 0.36, z); hdl.rotation.y = Math.PI / 2; g.add(hdl);
+
+  // ---- liaison haute cage → tour (le milieu reste ouvert au sol)
+  const colX = w / 2 - 0.05, colW = 0.09, tz = 0;
+  g.add(bx(colX - xc[1], p, p, fr, (colX + xc[1]) / 2, h - 0.12, tz));
+
+  // ---- tour à poulie
+  g.add(bx(colW, h, colW, fr, colX, h / 2, tz));
+  g.add(bx(0.12, 0.05, d, fr, colX, 0.025, 0));
+  // bras de tirage vertical en haut, en avancée vers l'avant, avec ses poulies
+  const armL = 0.6;
+  g.add(slab([colX, h - 0.05, tz], [colX - 0.06, h - 0.02, tz + armL], 0.08, 0.08, fr));
+  for (const k of [0.15, 0.5, 0.85]) g.add(cy(0.04, 0.02, white, 'x', colX - 0.06 * k, h + 0.01, tz + armL * k, 16));
+  g.add(cy(0.045, 0.025, white, 'x', colX - 0.06, h - 0.1, tz + armL - 0.02, 18));
+  g.add(cy(0.004, h - 0.1 - 1.78, cable, 'y', colX - 0.06, (h - 0.1 + 1.78) / 2, tz + armL - 0.02, 4));
+  g.add(cy(0.014, 0.95, dk, 'x', colX - 0.06, 1.76, tz + armL - 0.02, 10));
+  for (const s of [-1, 1]) g.add(cy(0.019, 0.14, M('#2a2b2e', 0.7), 'x', colX - 0.06 + s * 0.4, 1.76, tz + armL - 0.02, 10));
+  // poulie réglable en hauteur sur la colonne, tournée vers l'avant
+  g.add(bx(0.13, 0.2, 0.13, fr, colX, 1.15, tz + colW / 2 + 0.06));
+  g.add(cy(0.045, 0.025, white, 'x', colX, 1.06, tz + colW / 2 + 0.14, 18));
+  const hdl = mesh(new THREE.TorusGeometry(0.05, 0.011, 8, 18), dk, colX, 0.88, tz + colW / 2 + 0.16); hdl.rotation.y = Math.PI / 2; g.add(hdl);
+  g.add(beam([colX, 1.02, tz + colW / 2 + 0.15], [colX, 0.93, tz + colW / 2 + 0.16], 0.004, cable, 4));
+  // charge à la base, côté cage, entre deux tiges de guidage
+  const sx = w / 2 - half + 0.11;
+  for (const dz of [-0.13, 0.13]) g.add(cy(0.011, h - 0.3, ch, 'y', sx, (h - 0.3) / 2 + 0.05, tz + dz, 8));
+  g.add(bx(0.24, 0.05, 0.4, fr, sx, 0.025, tz));
+  g.add(bx(0.2, 0.04, 0.32, fr, sx, h - 0.27, tz));
+  if (it.variant === 'stack') {
+    const plt = M('#1b1c1f', 0.5, 0.4);
+    for (let i = 0; i < 18; i++) g.add(bx(0.2, 0.022, 0.34, plt, sx, 0.08 + i * 0.025, tz));
+    g.add(bx(0.21, 0.04, 0.35, fr, sx, 0.08 + 18 * 0.025 + 0.02, tz));
+    g.add(cy(0.008, 0.08, M('#d7262e', 0.5), 'x', sx + 0.13, 0.08 + 9 * 0.025, tz, 8));
+  } else {
+    g.add(bx(0.18, 0.06, 0.3, fr, sx, 0.14, tz));
+    g.add(cy(0.025, 0.62, ch, 'z', sx, 0.27, tz, 12));
+    for (const s of [-1, 1]) for (let i = 0; i < 2; i++) { const pl = plate(i ? 10 : 20, 'z'); pl.position.set(sx, 0.27, tz + s * (0.12 + i * 0.05)); g.add(pl); }
   }
+  // cale-pieds incliné devant la charge
+  const foot = bx(0.34, 0.025, 0.3, M('#2a2b2e', 0.6, 0.3), sx - 0.04, 0.12, tz + 0.5); foot.rotation.x = 0.6; g.add(foot);
+  g.add(bx(0.08, 0.05, 0.42, fr, sx - 0.04, 0.025, tz + 0.42));
   return outer;
 }
 function buildWallRack(it) {
@@ -759,7 +779,7 @@ function buildFridge(it) {
 
 // zone : espace d'usage devant (f), derrière (b) et sur les côtés (s), en mètres
 const CATALOG = {
-  r8drift: { name: 'Atletica R8 Drift', cat: 'force', w: 2.61, d: 1.23, h: 2.26, price: 1679, color: '#1b1c1f', zone: { f: 1.0, b: 0.3, s: 0.3 }, pullup: true, flip: true, build: buildR8Drift },
+  r8drift: { name: 'Atletica R8 Drift', cat: 'force', w: 2.61, d: 1.23, h: 2.26, price: 1679, priceOf: (it) => (it.variant === 'stack' ? 2069 : 1679), color: '#1b1c1f', zone: { f: 1.0, b: 0.3, s: 0.3 }, pullup: true, flip: true, variants: true, build: buildR8Drift },
   rack: { name: 'Power rack', cat: 'force', w: 1.22, d: 1.4, h: 2.3, price: 690, color: '#1c1d20', zone: { f: 1.0, b: 0.2, s: 0.5 }, pullup: true, build: buildRack },
   wallrack: { name: 'Rack mural repliable', cat: 'force', w: 1.2, d: 0.56, h: 2.2, price: 520, color: '#1c1d20', zone: { f: 1.4, b: 0, s: 0.55 }, wall: true, pullup: true, build: buildWallRack },
   bench: { name: 'Banc réglable', cat: 'force', w: 0.6, d: 1.35, h: 0.45, price: 260, color: '#1e2024', zone: { f: 0.3, b: 0.3, s: 0.5 }, zoneOk: true, build: buildBench },
@@ -897,7 +917,7 @@ function normalizeDoc(d) {
   }
   for (const it of Array.isArray(d?.items) ? d.items : []) {
     const def = CATALOG[it?.type]; if (!def) continue;
-    out.items.push({ id: String(it.id || uid()), type: it.type, x: num(it.x, 0), z: num(it.z, 0), rot: num(it.rot, 0), w: clamp(num(it.w, def.w), 0.01, 8), d: clamp(num(it.d, def.d), 0.01, 8), h: clamp(num(it.h, def.h), 0.005, 4.4), elev: clamp(num(it.elev, def.elev || 0), 0, 4), color: /^#[0-9a-f]{6}$/i.test(it.color) ? it.color : def.color, ...(it.flip ? { flip: true } : {}) });
+    out.items.push({ id: String(it.id || uid()), type: it.type, x: num(it.x, 0), z: num(it.z, 0), rot: num(it.rot, 0), w: clamp(num(it.w, def.w), 0.01, 8), d: clamp(num(it.d, def.d), 0.01, 8), h: clamp(num(it.h, def.h), 0.005, 4.4), elev: clamp(num(it.elev, def.elev || 0), 0, 4), color: /^#[0-9a-f]{6}$/i.test(it.color) ? it.color : def.color, ...(it.flip ? { flip: true } : {}), ...(it.variant === 'stack' ? { variant: 'stack' } : {}) });
   }
   return out;
 }
@@ -2174,7 +2194,7 @@ function renderProject() {
 function stats() {
   const { w, d, h } = doc.room;
   let budget = 0, foot = 0;
-  for (const it of doc.items) { const def = CATALOG[it.type]; budget += def.price; if (!def.flat && !def.wall && !def.hang) foot += it.w * it.d; }
+  for (const it of doc.items) { const def = CATALOG[it.type]; budget += def.priceOf ? def.priceOf(it) : def.price; if (!def.flat && !def.wall && !def.hang) foot += it.w * it.d; }
   return { area: w * d, vol: w * d * h, budget, occ: Math.round((foot / (w * d)) * 100) };
 }
 function renderStatus() {
@@ -2196,7 +2216,7 @@ function renderInspector() {
   if (ui.sel.kind === 'item') {
     const def = CATALOG[s.type], cat = CATS[def.cat], warns = analysis.items[s.id] || [];
     el.innerHTML = `
-      <div class="insp-head"><span class="dot" style="background:${cat.color}"></span><h2>${esc(def.name)}<small>${esc(cat.label)} · env. ${euro(def.price)}</small></h2>
+      <div class="insp-head"><span class="dot" style="background:${cat.color}"></span><h2>${esc(def.name)}${s.variant === 'stack' ? ' PRO' : ''}<small>${esc(cat.label)} · env. ${euro(def.priceOf ? def.priceOf(s) : def.price)}</small></h2>
         <button type="button" class="icon-btn" data-act="close" aria-label="Fermer"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
       <div class="insp-grid">
         <label>Largeur<input type="number" data-f="w" value="${cm(s.w)}" min="5" step="1"></label>
@@ -2210,7 +2230,8 @@ function renderInspector() {
         <button type="button" class="btn" data-rot="15">+15°</button><button type="button" class="btn" data-rot="90" title="Touche R">+90°</button></div>
       <div class="insp-grid two"><label>Angle (°)<input type="number" data-f="rot" value="${Math.round(s.rot)}" step="1"></label><label>Couleur<input type="color" data-f="color" value="${s.color}"></label></div>`}
       ${def.wall ? `<div class="insp-row"><span class="lbl">Couleur</span><input type="color" data-f="color" value="${s.color}"></div>` : ''}
-      ${def.flip ? `<button type="button" class="btn" data-act="flip">Mettre la poulie à ${s.flip ? 'droite' : 'gauche'}</button>` : ''}
+      ${def.variants ? `<div class="seg seg2"><button type="button" data-act="variant" data-v="plates" class="${s.variant === 'stack' ? '' : 'on'}">Chargement disques</button><button type="button" data-act="variant" data-v="stack" class="${s.variant === 'stack' ? 'on' : ''}">PRO · pile 95 kg</button></div>` : ''}
+      ${def.flip ? `<button type="button" class="btn" data-act="flip">Mettre la tour à ${s.flip ? 'droite' : 'gauche'}</button>` : ''}
       ${warns.length ? `<ul class="warns">${warns.map((w) => `<li class="${w.lvl === 'soft' ? 'soft' : ''}">${esc(w.msg)}</li>`).join('')}</ul>` : '<p class="goodnote">Bien placé, rien à signaler.</p>'}
       <p class="hint">Glisse l'objet dans la vue, ou clique une cote jaune pour taper la distance au mur.</p>
       <div class="insp-actions"><button type="button" class="btn" data-act="dup">Dupliquer</button><button type="button" class="btn danger" data-act="del">Supprimer</button></div>`;
@@ -2308,6 +2329,7 @@ function bindUI() {
     if (a === 'dup') duplicateSel();
     if (a === 'del') deleteSel();
     if (a === 'toggle') toggleOpening(s);
+    if (a === 'variant') { if (b.dataset.v === 'stack') s.variant = 'stack'; else delete s.variant; rebuildItem(s); showSelBox(); commit(); renderInspector(); renderStatus(); }
     if (a === 'flip') { s.flip = !s.flip; if (!s.flip) delete s.flip; rebuildItem(s); showSelBox(); updateCotes(); commit(); renderInspector(); }
   });
   insp.addEventListener('input', (e) => {
