@@ -518,6 +518,141 @@ function buildBradley(it) {
   const bb = barbell([20, 10]); bb.position.set(0, 1.46, zs[1] + 0.085); g.add(bb);
   return g;
 }
+// Atletica R8 Duality long à charge libre : cage 123 × 123 cm à l'arrière + poulie vis-à-vis de 112 cm à l'avant.
+// 6 montants de 226 cm : 4 pour la cage, 2 colonnes de poulie en bout. Chaque colonne a un chariot à disques
+// (cornes vers l'extérieur), une poulie réglable tournée vers l'intérieur et un repose-pieds.
+// Largeur 163 cm = cage 123 cm + 2 × 20 cm de supports latéraux.
+function buildDuality(it) {
+  const g = new THREE.Group(), { w, d, h } = it, fr = M(it.color, 0.45, 0.35), ch = CHROME(), dk = DARK(), p = 0.075;
+  const white = M('#e9e9e6', 0.4), cable = M('#111214', 0.6), strap = M('#1f2023', 0.85);
+  const cw = Math.min(1.23, w - 0.4), cd = Math.min(1.23, d * 0.52);
+  const xs = [-cw / 2 + p / 2, cw / 2 - p / 2];
+  const zb = -d / 2 + p / 2, zf = -d / 2 + cd - p / 2, zt = d / 2 - p / 2;
+  for (const x of xs) {
+    const out = Math.sign(x);
+    for (const z of [zb, zf, zt]) g.add(bx(p, h, p, fr, x, h / 2, z));
+    g.add(bx(p + 0.03, 0.04, cd + 0.06, fr, x, 0.02, -d / 2 + cd / 2));
+    g.add(bx(p, p, d, fr, x, h - p / 2, 0));
+    // cage : J-hooks, sangles de sécurité, support de barre latéral avec une barre debout
+    g.add(bx(0.06, 0.11, 0.12, fr, x, 1.38, zf + 0.075));
+    g.add(bx(0.05, 0.012, cd - 0.1, strap, x - out * 0.1, 0.72, -d / 2 + cd / 2));
+    g.add(bx(0.2, 0.06, 0.12, fr, x + out * 0.13, 0.12, zb + 0.25));
+    g.add(cy(0.025, 2.0, ch, 'y', x + out * 0.16, 1.07, zb + 0.25, 12));
+    // colonne de poulie : pied, tiges de guidage, chariot à disques, poulie réglable
+    g.add(bx(0.16, 0.04, 0.5, fr, x, 0.02, zt - 0.2));
+    const zr = [zt - 0.13, zt - 0.33], zsl = (zr[0] + zr[1]) / 2;
+    for (const z of zr) g.add(cy(0.011, h - 0.3, ch, 'y', x, (h - 0.3) / 2 + 0.08, z, 8));
+    g.add(bx(0.08, 0.04, 0.3, fr, x, h - 0.2, zsl));
+    g.add(bx(0.1, 0.2, 0.24, fr, x, 0.26, zsl));
+    g.add(cy(0.025, 0.24, ch, 'x', x + out * 0.15, 0.3, zsl, 12));
+    for (let i = 0; i < 2; i++) { const pl = plate(i ? 10 : 20, 'x'); pl.position.set(x + out * (0.1 + i * 0.05), 0.3, zsl); g.add(pl); }
+    g.add(cy(0.045, 0.025, white, 'x', x, h - 0.13, zsl, 18));
+    g.add(cy(0.004, h - 0.2 - 0.38, cable, 'y', x, (h - 0.2 + 0.38) / 2, zsl, 4));
+    g.add(bx(0.13, 0.2, 0.13, fr, x - out * 0.1, 1.55, zt));
+    g.add(cy(0.045, 0.025, white, 'z', x - out * 0.17, 1.46, zt, 18));
+    g.add(beam([x - out * 0.17, 1.42, zt], [x - out * 0.2, 1.24, zt], 0.004, cable, 4));
+    g.add(mesh(new THREE.TorusGeometry(0.05, 0.011, 8, 18), dk, x - out * 0.2, 1.19, zt));
+    const foot = bx(0.3, 0.025, 0.26, M('#2a2b2e', 0.6, 0.3), x - out * 0.2, 0.1, zt - 0.25); foot.rotation.x = -0.5; g.add(foot);
+  }
+  // traverses hautes, barre multiprises côté cage, monkey bar entre les colonnes
+  for (const z of [zb, zf, zt]) g.add(bx(cw, p, p, fr, 0, h - p / 2, z));
+  g.add(cy(0.016, cw - 0.1, ch, 'x', 0, h - 0.16, zf - 0.13, 14));
+  for (const k of [0.3, 0.7]) g.add(beam([-cw / 2 + cw * k, h - 0.16, zf - 0.13], [-cw / 2 + cw * k + (k < 0.5 ? -0.08 : 0.08), h - 0.28, zf - 0.27], 0.016, ch));
+  for (const x of xs) g.add(bx(0.05, 0.05, 0.16, fr, x, h - 0.16, zf - 0.08));
+  g.add(cy(0.016, cw + 0.04, ch, 'x', 0, h - 0.02, zt + 0.12, 14));
+  for (const x of xs) g.add(bx(0.05, 0.05, 0.14, fr, x, h - 0.02, zt + 0.06));
+  const bb = barbell([20, 10]); bb.position.set(0, 1.46, zf + 0.085); g.add(bb);
+  return g;
+}
+// Atletica Predator : banc modulaire, poutre 110 × 60 mm, 150 × 65,5 × 46 cm, dossier 89,5 × 25 cm, assise 37 cm.
+// Avec l'option EVO Arm (pupitre à biceps 63,5 × 71 × 75 cm) emboîtée côté assise (avant, +z).
+const EVO_EXT = 0.45;
+function buildPredator(it) {
+  const g = new THREE.Group(), { w, d, h } = it, fr = M('#1c1d20', 0.45, 0.35), pad = M(it.color, 0.62), ch = CHROME(), dk = DARK();
+  const L = it.evo ? d - EVO_EXT : d, zc = it.evo ? -EVO_EXT / 2 : 0, zf = zc + L / 2, zr = zc - L / 2;
+  // poutre principale 110 × 60 mm et pieds
+  g.add(bx(0.06, 0.11, L * 0.8, fr, 0, 0.17, zc));
+  g.add(bx(w, 0.06, 0.08, fr, 0, 0.03, zf - 0.07));
+  g.add(slab([0, 0.06, zf - 0.07], [0, 0.17, zf - 0.22], 0.06, 0.08, fr));
+  g.add(bx(w * 0.7, 0.06, 0.08, fr, 0, 0.03, zr + 0.09));
+  g.add(slab([0, 0.06, zr + 0.09], [0, 0.17, zr + 0.24], 0.06, 0.08, fr));
+  for (const sx of [-1, 1]) g.add(cy(0.04, 0.035, dk, 'x', sx * w * 0.3, 0.04, zr + 0.03, 16));
+  g.add(cy(0.015, 0.3, ch, 'z', 0, 0.2, zr - 0.06, 10));
+  g.add(bx(0.07, 0.07, 0.12, fr, 0, 0.17, zr + 0.02));
+  // assise et dossier (écart de 5,5 cm), réglage en échelle sous le dossier
+  const py = h - 0.03, seatL = 0.37, backL = Math.min(0.895, L - seatL - 0.055 - 0.08);
+  const zSeat = zf - 0.06 - seatL / 2, zBack = zSeat - seatL / 2 - 0.055 - backL / 2;
+  g.add(rb(0.25, 0.06, seatL, 0.025, pad, 0, py, zSeat));
+  g.add(rb(0.25, 0.06, backL, 0.025, pad, 0, py, zBack));
+  g.add(bx(0.05, py - 0.2, 0.06, fr, 0, (py - 0.2) / 2 + 0.2, zSeat));
+  g.add(bx(0.05, py - 0.2, 0.06, fr, 0, (py - 0.2) / 2 + 0.2, zBack - 0.1));
+  g.add(slab([0, 0.23, zBack - 0.35], [0, 0.3, zBack + 0.2], 0.07, 0.03, fr));
+  // récepteurs d'accessoires aux deux bouts
+  g.add(bx(0.07, 0.07, 0.1, fr, 0, 0.17, zf - 0.02));
+  if (it.evo) {
+    // EVO Arm : montant dans le récepteur, pupitre incliné, levier avec poignée et corne à disques
+    const zA = zf + 0.04;
+    g.add(bx(0.07, 0.07, 0.2, fr, 0, 0.17, zA + 0.06));
+    g.add(bx(0.07, 0.5, 0.07, fr, 0, 0.42, zA + 0.15));
+    const desk = rb(0.5, 0.06, 0.34, 0.025, pad, 0, 0.66, zA + 0.24); desk.rotation.x = -0.75; g.add(desk);
+    g.add(bx(0.4, 0.03, 0.05, fr, 0, 0.5, zA + 0.38));
+    g.add(cy(0.035, 0.12, ch, 'x', 0, 0.55, zA + 0.44, 14));
+    for (const sx of [-1, 1]) g.add(slab([sx * 0.26, 0.55, zA + 0.44], [sx * 0.26, 0.72, zA + 0.1], 0.04, 0.04, fr));
+    g.add(cy(0.016, 0.62, ch, 'x', 0, 0.72, zA + 0.08, 12));
+    g.add(cy(0.025, 0.2, ch, 'x', 0.38, 0.55, zA + 0.44, 12));
+    const pl = plate(10, 'x'); pl.position.set(0.36, 0.55, zA + 0.44); g.add(pl);
+  } else {
+    g.add(bx(0.05, 0.05, 0.05, fr, 0, 0.17, zf + 0.04));
+  }
+  return g;
+}
+// Barre olympique Delta : 220 cm, manchons Ø 50 mm, posée au sol ou sur les J-hooks (hauteur de pose).
+function buildOlyBar(it) {
+  const g = new THREE.Group(), bb = barbell([]);
+  bb.scale.x = it.w / 2.2; bb.position.y = 0.025; g.add(bb);
+  return g;
+}
+// Barre EZ : 120 cm, poignée cintrée, manchons Ø 50 mm.
+function buildEZ(it) {
+  const g = new THREE.Group(), ch = CHROME(), k = it.w / 1.2, y = 0.025;
+  const pts = [[-0.32, 0], [-0.22, 0], [-0.17, 0.035], [-0.12, -0.035], [-0.06, 0], [0.06, 0], [0.12, -0.035], [0.17, 0.035], [0.22, 0], [0.32, 0]];
+  for (let i = 0; i < pts.length - 1; i++) g.add(beam([pts[i][0] * k, y, pts[i][1]], [pts[i + 1][0] * k, y, pts[i + 1][1]], 0.014, ch, 10));
+  for (const sx of [-1, 1]) { g.add(cy(0.027, 0.03, ch, 'x', sx * 0.335 * k, y, 0, 16)); g.add(cy(0.025, 0.25 * k, ch, 'x', sx * (0.35 + 0.125) * k, y, 0, 16)); }
+  return g;
+}
+// Set de disques bumper noirs 110 kg (4 × 20, 2 × 10, 2 × 5 kg) rangés debout sur un support.
+function buildBumperSet(it) {
+  const g = new THREE.Group(), { w, d } = it, fr = M('#1c1d20', 0.45, 0.35), blk = M('#1a1b1d', 0.75), ch = CHROME();
+  for (const sz of [-1, 1]) g.add(bx(w, 0.04, 0.05, fr, 0, 0.02, sz * (d / 2 - 0.08)));
+  for (const sx of [-1, 1]) g.add(bx(0.04, 0.12, d - 0.1, fr, sx * (w / 2 - 0.02), 0.06, 0));
+  const set = [[20, 0.056], [20, 0.056], [20, 0.056], [20, 0.056], [10, 0.036], [10, 0.036], [5, 0.03], [5, 0.03]];
+  const total = set.reduce((a, [, t]) => a + t + 0.025, 0);
+  let x = -total / 2;
+  for (const [, t] of set) {
+    x += t / 2 + 0.0125;
+    g.add(cy(0.225, t, blk, 'x', x, 0.245, 0, 40));
+    g.add(cy(0.032, t + 0.003, ch, 'x', x, 0.245, 0, 16));
+    x += t / 2 + 0.0125;
+  }
+  return g;
+}
+// Set L1 Olympia ×2 : deux haltères (barre 52 cm, manchons 17,5 cm) chargées de 47,5 kg de disques en fonte.
+function buildL1Pair(it) {
+  const g = new THREE.Group(), ch = CHROME(), iron = M('#2b2d31', 0.55, 0.45), k = it.w / 0.52;
+  const discs = [[0.115, 0.024], [0.115, 0.024], [0.115, 0.024], [0.115, 0.024], [0.095, 0.02], [0.08, 0.016]];
+  const r0 = discs[0][0];
+  for (const sz of [-1, 1]) {
+    const z = sz * (it.d / 2 - r0);
+    g.add(cy(0.0125, 0.17 * k, ch, 'x', 0, r0, z, 10));
+    for (const sx of [-1, 1]) {
+      g.add(cy(0.025, 0.175 * k, ch, 'x', sx * (0.085 + 0.0875) * k, r0, z, 14));
+      let x = 0.09 * k;
+      for (const [r, t] of discs) { g.add(cy(r, t, iron, 'x', sx * (x + t / 2), r0, z, 28)); x += t + 0.002; }
+      g.add(cy(0.035, 0.03, M('#c9ccd1', 0.35, 0.6), 'x', sx * (x + 0.015), r0, z, 14));
+    }
+  }
+  return g;
+}
 function buildWallRack(it) {
   const g = new THREE.Group(), { w, d, h } = it, fr = M(it.color, 0.45, 0.35), p = 0.075;
   const xs = [-w / 2 + p / 2, w / 2 - p / 2], zb = -d / 2 + 0.02, zf = d / 2 - p / 2;
@@ -824,12 +959,18 @@ function buildFridge(it) {
 const CATALOG = {
   r8drift: { name: 'Atletica R8 Drift', cat: 'force', w: 2.61, d: 1.23, h: 2.26, price: 1679, priceOf: (it) => (it.variant === 'stack' ? 2069 : 1679), color: '#1b1c1f', zone: { f: 1.0, b: 0.3, s: 0.3 }, pullup: true, flip: true, variants: true, build: buildR8Drift },
   bradley: { name: 'Atletica R8 Bradley Moyen', cat: 'force', w: 1.23, d: 1.23, h: 2.31, price: 1899, color: '#1b1c1f', zone: { f: 1.2, b: 0.3, s: 0.45 }, pullup: true, build: buildBradley },
+  duality: { name: 'Atletica R8 Duality', cat: 'force', w: 1.63, d: 2.35, h: 2.26, price: 1629, color: '#1b1c1f', zone: { f: 0.5, b: 0.3, s: 0.3 }, pullup: true, build: buildDuality },
+  predator: { name: 'Banc Predator', cat: 'force', w: 0.655, d: 1.5, h: 0.46, price: 379, priceOf: (it) => 379 + (it.evo ? 199 : 0), color: '#1a1b1d', zone: { f: 0.3, b: 0.3, s: 0.5 }, zoneOk: true, evo: true, build: buildPredator },
   rack: { name: 'Power rack', cat: 'force', w: 1.22, d: 1.4, h: 2.3, price: 690, color: '#1c1d20', zone: { f: 1.0, b: 0.2, s: 0.5 }, pullup: true, build: buildRack },
   wallrack: { name: 'Rack mural repliable', cat: 'force', w: 1.2, d: 0.56, h: 2.2, price: 520, color: '#1c1d20', zone: { f: 1.4, b: 0, s: 0.55 }, wall: true, pullup: true, build: buildWallRack },
   bench: { name: 'Banc réglable', cat: 'force', w: 0.6, d: 1.35, h: 0.45, price: 260, color: '#1e2024', zone: { f: 0.3, b: 0.3, s: 0.5 }, zoneOk: true, build: buildBench },
   cable: { name: 'Poulie vis-à-vis', cat: 'force', w: 3.4, d: 0.9, h: 2.25, price: 1890, color: '#2a2c30', zone: { f: 1.6, b: 0, s: 0.2 }, build: buildCable },
   legpress: { name: 'Presse à cuisses 45°', cat: 'force', w: 1.5, d: 2.1, h: 1.45, price: 1290, color: '#1c1d20', zone: { f: 0.3, b: 0.5, s: 0.6 }, build: buildLegpress },
   platform: { name: "Plateforme d'haltérophilie", cat: 'libre', w: 2.44, d: 2.44, h: 0.05, price: 380, color: '#c8975a', flat: true, build: buildPlatform },
+  delta: { name: 'Barre olympique Delta', cat: 'libre', w: 2.2, d: 0.06, h: 0.05, price: 249, color: '#d7dbe0', noCollide: true, lift: true, build: buildOlyBar },
+  ezbar: { name: 'Barre EZ', cat: 'libre', w: 1.2, d: 0.08, h: 0.05, price: 89, color: '#d7dbe0', noCollide: true, lift: true, build: buildEZ },
+  bumpers110: { name: 'Disques bumper noirs 110 kg', cat: 'libre', w: 0.62, d: 0.5, h: 0.47, price: 392, color: '#1a1b1d', zone: { f: 0.4, b: 0, s: 0.2 }, build: buildBumperSet },
+  l1pair: { name: 'Haltères L1 Olympia (2 sets)', cat: 'libre', w: 0.52, d: 0.55, h: 0.23, price: 500, color: '#2b2d31', noCollide: true, build: buildL1Pair },
   dumbbells: { name: "Rack d'haltères", cat: 'libre', w: 1.3, d: 0.55, h: 0.82, price: 1450, color: '#1c1d20', zone: { f: 1.0, b: 0, s: 0.2 }, build: buildDumbbells },
   kettlebells: { name: 'Étagère kettlebells', cat: 'libre', w: 1.0, d: 0.36, h: 0.62, price: 520, color: '#1c1d20', zone: { f: 0.8, b: 0, s: 0.1 }, build: buildKettlebells },
   platetree: { name: 'Arbre à disques', cat: 'libre', w: 0.6, d: 0.6, h: 1.2, price: 450, color: '#1c1d20', zone: { f: 0.4, b: 0.4, s: 0.3 }, build: buildPlateTree },
@@ -961,7 +1102,7 @@ function normalizeDoc(d) {
   }
   for (const it of Array.isArray(d?.items) ? d.items : []) {
     const def = CATALOG[it?.type]; if (!def) continue;
-    out.items.push({ id: String(it.id || uid()), type: it.type, x: num(it.x, 0), z: num(it.z, 0), rot: num(it.rot, 0), w: clamp(num(it.w, def.w), 0.01, 8), d: clamp(num(it.d, def.d), 0.01, 8), h: clamp(num(it.h, def.h), 0.005, 4.4), elev: clamp(num(it.elev, def.elev || 0), 0, 4), color: /^#[0-9a-f]{6}$/i.test(it.color) ? it.color : def.color, ...(it.flip ? { flip: true } : {}), ...(it.variant === 'stack' ? { variant: 'stack' } : {}) });
+    out.items.push({ id: String(it.id || uid()), type: it.type, x: num(it.x, 0), z: num(it.z, 0), rot: num(it.rot, 0), w: clamp(num(it.w, def.w), 0.01, 8), d: clamp(num(it.d, def.d), 0.01, 8), h: clamp(num(it.h, def.h), 0.005, 4.4), elev: clamp(num(it.elev, def.elev || 0), 0, 4), color: /^#[0-9a-f]{6}$/i.test(it.color) ? it.color : def.color, ...(it.flip ? { flip: true } : {}), ...(it.variant === 'stack' ? { variant: 'stack' } : {}), ...(it.evo ? { evo: true } : {}) });
   }
   return out;
 }
@@ -1477,7 +1618,7 @@ function analyze() {
   const list = doc.items;
   for (let i = 0; i < list.length; i++) for (let j = i + 1; j < list.length; j++) {
     const a = list[i], b = list[j], da = CATALOG[a.type], db = CATALOG[b.type];
-    if (da.flat || db.flat) continue;
+    if (da.flat || db.flat || da.noCollide || db.noCollide) continue;
     const [a0, a1] = vRange(a), [b0, b1] = vRange(b);
     if (a1 <= b0 + 0.005 || b1 <= a0 + 0.005) continue;
     if (polysOverlap(polys.get(a.id), polys.get(b.id))) { add(a.id, `Chevauche « ${db.name} »`); add(b.id, `Chevauche « ${da.name} »`); }
@@ -1485,7 +1626,7 @@ function analyze() {
   for (const a of list) {
     const za = zones.get(a.id); if (!za) continue;
     for (const b of list) {
-      if (a === b || CATALOG[b.type].flat || CATALOG[b.type].zoneOk || res.items[b.id]?.some((m) => m.msg.includes(CATALOG[a.type].name))) continue;
+      if (a === b || CATALOG[b.type].flat || CATALOG[b.type].noCollide || CATALOG[b.type].zoneOk || res.items[b.id]?.some((m) => m.msg.includes(CATALOG[a.type].name))) continue;
       const [b0] = vRange(b); if (b0 > 1.2) continue;
       if (polysOverlap(za, polys.get(b.id))) add(b.id, `Empiète sur l'espace d'usage de « ${CATALOG[a.type].name} »`, 'soft');
     }
@@ -2260,7 +2401,7 @@ function renderInspector() {
   if (ui.sel.kind === 'item') {
     const def = CATALOG[s.type], cat = CATS[def.cat], warns = analysis.items[s.id] || [];
     el.innerHTML = `
-      <div class="insp-head"><span class="dot" style="background:${cat.color}"></span><h2>${esc(def.name)}${s.variant === 'stack' ? ' PRO' : ''}<small>${esc(cat.label)} · env. ${euro(def.priceOf ? def.priceOf(s) : def.price)}</small></h2>
+      <div class="insp-head"><span class="dot" style="background:${cat.color}"></span><h2>${esc(def.name)}${s.variant === 'stack' ? ' PRO' : ''}${s.evo ? ' + EVO Arm' : ''}<small>${esc(cat.label)} · env. ${euro(def.priceOf ? def.priceOf(s) : def.price)}</small></h2>
         <button type="button" class="icon-btn" data-act="close" aria-label="Fermer"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
       <div class="insp-grid">
         <label>Largeur<input type="number" data-f="w" value="${cm(s.w)}" min="5" step="1"></label>
@@ -2275,6 +2416,8 @@ function renderInspector() {
       <div class="insp-grid two"><label>Angle (°)<input type="number" data-f="rot" value="${Math.round(s.rot)}" step="1"></label><label>Couleur<input type="color" data-f="color" value="${s.color}"></label></div>`}
       ${def.wall ? `<div class="insp-row"><span class="lbl">Couleur</span><input type="color" data-f="color" value="${s.color}"></div>` : ''}
       ${def.variants ? `<div class="seg seg2"><button type="button" data-act="variant" data-v="plates" class="${s.variant === 'stack' ? '' : 'on'}">Chargement disques</button><button type="button" data-act="variant" data-v="stack" class="${s.variant === 'stack' ? 'on' : ''}">PRO · pile 95 kg</button></div>` : ''}
+      ${def.evo ? `<button type="button" class="btn" data-act="evo">${s.evo ? "Retirer l'EVO Arm (−199 €)" : "Monter l'EVO Arm (+199 €)"}</button>` : ''}
+      ${def.lift ? `<div class="insp-grid two"><label>Posée à (cm du sol)<input type="number" data-f="elev" value="${cm(s.elev)}" min="0" step="1"></label></div><p class="hint">Tape 146 pour la poser sur les J-hooks d'un rack.</p>` : ''}
       ${def.flip ? `<button type="button" class="btn" data-act="flip">Mettre la tour à ${s.flip ? 'droite' : 'gauche'}</button>` : ''}
       ${warns.length ? `<ul class="warns">${warns.map((w) => `<li class="${w.lvl === 'soft' ? 'soft' : ''}">${esc(w.msg)}</li>`).join('')}</ul>` : '<p class="goodnote">Bien placé, rien à signaler.</p>'}
       <p class="hint">Glisse l'objet dans la vue, ou clique une cote jaune pour taper la distance au mur.</p>
@@ -2374,6 +2517,13 @@ function bindUI() {
     if (a === 'del') deleteSel();
     if (a === 'toggle') toggleOpening(s);
     if (a === 'variant') { if (b.dataset.v === 'stack') s.variant = 'stack'; else delete s.variant; rebuildItem(s); showSelBox(); commit(); renderInspector(); renderStatus(); }
+    if (a === 'evo') {
+      const sign = s.evo ? -1 : 1, th = -s.rot * DEG;
+      s.evo = !s.evo; if (!s.evo) delete s.evo;
+      s.d = Math.max(0.5, s.d + sign * EVO_EXT);
+      s.x += Math.sin(th) * sign * EVO_EXT / 2; s.z += Math.cos(th) * sign * EVO_EXT / 2;
+      clampItem(s); rebuildItem(s); showSelBox(); updateCotes(); commit(); renderInspector(); renderStatus();
+    }
     if (a === 'flip') { s.flip = !s.flip; if (!s.flip) delete s.flip; rebuildItem(s); showSelBox(); updateCotes(); commit(); renderInspector(); }
   });
   insp.addEventListener('input', (e) => {
