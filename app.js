@@ -709,6 +709,54 @@ function buildR7Cage(it) {
   g.add(cy(0.03, 0.2, ch, 'z', xs[0], 0.12, dz + 0.2, 12));
   return g;
 }
+// Atletica Harrier : station à poulie 171 × 100,5 × 210,8 cm. Colonne centrale à l'arrière avec deux piles de 90 kg
+// et panneau à exercices ; deux montants inox à l'avant (21 positions) avec poulies pivotantes ; base en V et cadre haut
+// en triangle avec barre de traction multiprises.
+function buildHarrier(it) {
+  const g = new THREE.Group(), { w, d, h } = it, fr = M(it.color, 0.45, 0.35), inox = M('#c9ccd1', 0.28, 0.85), ch = CHROME(), dk = DARK();
+  const cable = M('#111214', 0.6), stack = M('#1b1c1f', 0.5, 0.4), label = M('#8e949b', 0.5, 0.3);
+  const zT = -d / 2 + 0.15, xo = w / 2 - 0.09, zo = d / 2 - 0.16, top = h - 0.05;
+  // base en V et pieds sous les montants
+  for (const sx of [-1, 1]) {
+    g.add(slab([0, 0.04, zT], [sx * xo, 0.04, zo], 0.09, 0.08, fr));
+    g.add(bx(0.11, 0.05, 0.5, fr, sx * xo, 0.025, zo - 0.04));
+    for (const dz of [-0.27, 0.19]) g.add(bx(0.13, 0.015, 0.08, dk, sx * xo, 0.0075, zo + dz));
+  }
+  g.add(bx(0.62, 0.06, 0.3, fr, 0, 0.03, zT));
+  // colonne centrale : deux poteaux, deux piles, tiges de guidage, panneau avant
+  for (const sx of [-1, 1]) {
+    g.add(bx(0.07, top - 0.06, 0.2, fr, sx * 0.3, (top - 0.06) / 2 + 0.06, zT));
+    for (let i = 0; i < 18; i++) g.add(bx(0.17, 0.024, 0.13, stack, sx * 0.16, 0.1 + i * 0.026, zT));
+    for (const dz of [-0.045, 0.045]) g.add(cy(0.008, top - 0.2, ch, 'y', sx * 0.16, (top - 0.2) / 2 + 0.08, zT + dz, 8));
+    g.add(bx(0.17, 0.04, 0.14, fr, sx * 0.16, 0.6, zT));
+    g.add(cy(0.004, top - 0.75, cable, 'y', sx * 0.16, (top + 0.6) / 2, zT + 0.02, 4));
+  }
+  g.add(bx(0.26, top - 0.2, 0.04, fr, 0, (top - 0.2) / 2 + 0.12, zT + 0.12));
+  g.add(bx(0.17, 0.75, 0.005, label, 0, top - 0.55, zT + 0.143));
+  g.add(bx(0.66, 0.07, 0.24, fr, 0, top - 0.035, zT));
+  // montants avant inox, perçages, poulies pivotantes avec poignée
+  for (const sx of [-1, 1]) {
+    const x = sx * xo;
+    g.add(bx(0.07, top, 0.1, inox, x, top / 2, zo));
+    for (let i = 0; i < 21; i++) g.add(bx(0.022, 0.022, 0.004, dk, x, 0.25 + i * 0.075, zo + 0.051));
+    g.add(bx(0.1, 0.16, 0.12, dk, x - sx * 0.07, 1.45, zo + 0.02));
+    g.add(cy(0.07, 0.05, dk, 'x', x - sx * 0.14, 1.42, zo + 0.06, 20));
+    g.add(beam([x - sx * 0.17, 1.36, zo + 0.08], [x - sx * 0.19, 1.2, zo + 0.08], 0.004, cable, 4));
+    const hdl = mesh(new THREE.TorusGeometry(0.06, 0.012, 8, 18), dk, x - sx * 0.19, 1.13, zo + 0.08); g.add(hdl);
+    g.add(cy(0.004, top - 1.5, cable, 'y', x - sx * 0.05, (top + 1.5) / 2, zo - 0.06, 4));
+    // bras haut en diagonale vers la colonne
+    g.add(slab([x, top - 0.02, zo], [sx * 0.33, top - 0.02, zT], 0.07, 0.07, fr));
+    g.add(beam([x - sx * 0.05, top - 0.07, zo - 0.06], [sx * 0.16, top - 0.07, zT + 0.02], 0.004, cable, 4));
+  }
+  // traverse avant avec logo et barre de traction multiprises
+  g.add(bx(2 * xo + 0.1, 0.08, 0.09, fr, 0, top - 0.04, zo));
+  g.add(bx(0.24, 0.035, 0.004, label, 0, top - 0.04, zo + 0.047));
+  for (const sx of [-1, 1]) {
+    g.add(slab([sx * 0.18, top - 0.02, zo + 0.04], [sx * 0.42, top + 0.0, zo + 0.32], 0.035, 0.035, dk, 0.012));
+    g.add(slab([sx * 0.42, top, zo + 0.32], [sx * 0.62, top - 0.02, zo + 0.06], 0.035, 0.035, dk, 0.012));
+  }
+  return g;
+}
 function buildWallRack(it) {
   const g = new THREE.Group(), { w, d, h } = it, fr = M(it.color, 0.45, 0.35), p = 0.075;
   const xs = [-w / 2 + p / 2, w / 2 - p / 2], zb = -d / 2 + 0.02, zf = d / 2 - p / 2;
@@ -1018,6 +1066,7 @@ const CATALOG = {
   duality: { name: 'Atletica R8 Duality', cat: 'force', w: 1.63, d: 2.35, h: 2.26, price: 1629, color: '#1b1c1f', zone: { f: 0.5, b: 0.3, s: 0.3 }, pullup: true, build: buildDuality },
   predator: { name: 'Banc Predator', cat: 'force', w: 0.655, d: 1.5, h: 0.46, price: 379, priceOf: (it) => 379 + (it.evo ? 199 : 0), color: '#1a1b1d', zone: { f: 0.3, b: 0.3, s: 0.5 }, zoneOk: true, evo: true, build: buildPredator },
   r7cage: { name: 'Atletica R7 Cage 224 cm', cat: 'force', w: 1.22, d: 1.86, h: 2.24, price: 1099, color: '#1b1c1f', zone: { f: 0.8, b: 0.3, s: 0.4 }, pullup: true, build: buildR7Cage },
+  harrier: { name: 'Atletica Harrier', cat: 'force', w: 1.71, d: 1.005, h: 2.108, price: 1399, color: '#1b1c1f', zone: { f: 1.3, b: 0.1, s: 0.2 }, build: buildHarrier },
   rack: { name: 'Power rack', cat: 'force', w: 1.22, d: 1.4, h: 2.3, price: 690, color: '#1c1d20', zone: { f: 1.0, b: 0.2, s: 0.5 }, pullup: true, build: buildRack },
   wallrack: { name: 'Rack mural repliable', cat: 'force', w: 1.2, d: 0.56, h: 2.2, price: 520, color: '#1c1d20', zone: { f: 1.4, b: 0, s: 0.55 }, wall: true, pullup: true, build: buildWallRack },
   bench: { name: 'Banc réglable', cat: 'force', w: 0.6, d: 1.35, h: 0.45, price: 260, color: '#1e2024', zone: { f: 0.3, b: 0.3, s: 0.5 }, zoneOk: true, build: buildBench },
