@@ -653,6 +653,62 @@ function buildL1Pair(it) {
   }
   return g;
 }
+// Atletica R7 Cage 224 cm à charge libre : cage 4 montants 70 × 70 mm, 122 × 186 × 224 cm (pieds avant compris).
+// À l'arrière au centre : colonne de charge avec poulie haute (tirage vertical) et chariot à disques en bas,
+// cornes de chaque côté ; la même poulie sert au rameur assis, repose-pieds au pied de la colonne.
+// Barre de traction multiprises, J-hooks, bras de sécurité de 47 cm, station à dips (avant) et landmine.
+function buildR7Cage(it) {
+  const g = new THREE.Group(), { w, d, h } = it, fr = M(it.color, 0.45, 0.35), zinc = M('#a3a9b0', 0.35, 0.7), ch = CHROME(), dk = DARK(), p = 0.07;
+  const white = M('#e9e9e6', 0.4), cable = M('#111214', 0.6);
+  const rear = Math.min(0.3, d * 0.16), cage = Math.min(1.2, d - rear - 0.1);
+  const zr = -d / 2 + rear + p / 2, zf = zr + cage - p, zc = -d / 2 + 0.09;
+  const xs = [-w / 2 + p / 2, w / 2 - p / 2];
+  for (const x of xs) {
+    for (const z of [zr, zf]) g.add(bx(p, h, p, fr, x, h / 2, z));
+    g.add(bx(p, p, cage, fr, x, h - p / 2, (zr + zf) / 2));
+    // pied latéral prolongé vers l'avant, et vers l'arrière jusqu'à la colonne
+    g.add(bx(p, 0.05, d, fr, x, 0.025, 0));
+    g.add(bx(0.06, 0.11, 0.12, fr, x, 1.4, zf + 0.07));
+    g.add(bx(0.06, 0.11, 0.12, fr, x, 1.15, zr + 0.07));
+    // bras de sécurité : 47 cm devant les montants avant
+    g.add(bx(0.06, 0.06, 0.47, zinc, x, 0.8, zf + p / 2 + 0.235));
+  }
+  for (const z of [zr, zf]) g.add(bx(w, p, p, fr, 0, h - p / 2, z));
+  g.add(bx(w, 0.05, p, fr, 0, 0.025, zr));
+  // barre de traction multiprises à l'avant
+  for (const x of xs) g.add(bx(0.05, 0.05, 0.22, fr, x, h - 0.12, zf + 0.1));
+  g.add(cy(0.016, w + 0.04, ch, 'x', 0, h - 0.12, zf + 0.2, 14));
+  for (const k of [0.3, 0.7]) g.add(beam([-w / 2 + w * k, h - 0.12, zf + 0.2], [-w / 2 + w * k + (k < 0.5 ? -0.08 : 0.08), h - 0.24, zf + 0.34], 0.016, ch));
+  // colonne de charge à l'arrière au centre
+  g.add(bx(0.08, h - 0.05, 0.08, fr, 0, (h - 0.05) / 2, zc));
+  g.add(bx(0.08, 0.08, zr - zc + p / 2, fr, 0, h - 0.04, (zr + zc) / 2));
+  g.add(bx(w, 0.05, 0.08, fr, 0, 0.025, zc));
+  // poulie haute et barre de tirage
+  g.add(cy(0.05, 0.03, white, 'x', 0, h - 0.13, zc + 0.08, 18));
+  g.add(cy(0.05, 0.03, white, 'x', 0, h - 0.13, zr + 0.25, 18));
+  g.add(beam([0, h - 0.13, zc + 0.08], [0, h - 0.13, zr + 0.25], 0.004, cable, 4));
+  g.add(cy(0.004, h - 0.13 - 1.85, cable, 'y', 0, (h - 0.13 + 1.85) / 2, zr + 0.25, 4));
+  g.add(cy(0.016, 1.2, ch, 'x', 0, 1.82, zr + 0.25, 12));
+  for (const sx of [-1, 1]) g.add(slab([sx * 0.6, 1.82, zr + 0.25], [sx * 0.66, 1.72, zr + 0.25], 0.035, 0.035, ch));
+  // chariot à disques en bas, cornes de chaque côté
+  g.add(bx(0.16, 0.24, 0.1, fr, 0, 0.32, zc + 0.09));
+  g.add(cy(0.025, 0.56, ch, 'x', 0, 0.3, zc + 0.09, 12));
+  for (const sx of [-1, 1]) for (let i = 0; i < 2; i++) { const pl = plate(i ? 10 : 20, 'x'); pl.position.set(sx * (0.13 + i * 0.05), 0.3, zc + 0.09); g.add(pl); }
+  g.add(cy(0.004, h - 0.4, cable, 'y', 0, (h - 0.13 + 0.44) / 2, zc + 0.12, 4));
+  // poulie basse et repose-pieds du rameur au pied de la colonne
+  g.add(cy(0.045, 0.03, white, 'x', 0, 0.08, zr + 0.06, 18));
+  const foot = bx(0.42, 0.025, 0.26, M('#2a2b2e', 0.6, 0.3), 0, 0.13, zr + 0.24); foot.rotation.x = -0.6; g.add(foot);
+  g.add(bx(0.06, 0.06, 0.3, fr, 0, 0.03, zr + 0.18));
+  // station à dips sur le montant avant droit, tournée vers l'avant
+  const dx = xs[1], dz = zf + p / 2;
+  g.add(bx(0.12, 0.16, 0.06, fr, dx, 1.2, dz + 0.03));
+  for (const sx of [-1, 1]) g.add(slab([dx + sx * 0.2, 1.24, dz + 0.04], [dx + sx * 0.28, 1.24, dz + 0.5], 0.04, 0.04, fr));
+  for (const sx of [-1, 1]) g.add(cy(0.022, 0.18, dk, 'z', dx + sx * 0.28, 1.25, dz + 0.42, 10));
+  // landmine au pied du montant avant gauche
+  g.add(bx(0.12, 0.12, 0.12, fr, xs[0], 0.08, dz + 0.06));
+  g.add(cy(0.03, 0.2, ch, 'z', xs[0], 0.12, dz + 0.2, 12));
+  return g;
+}
 function buildWallRack(it) {
   const g = new THREE.Group(), { w, d, h } = it, fr = M(it.color, 0.45, 0.35), p = 0.075;
   const xs = [-w / 2 + p / 2, w / 2 - p / 2], zb = -d / 2 + 0.02, zf = d / 2 - p / 2;
@@ -961,6 +1017,7 @@ const CATALOG = {
   bradley: { name: 'Atletica R8 Bradley Moyen', cat: 'force', w: 1.23, d: 1.23, h: 2.31, price: 1899, color: '#1b1c1f', zone: { f: 1.2, b: 0.3, s: 0.45 }, pullup: true, build: buildBradley },
   duality: { name: 'Atletica R8 Duality', cat: 'force', w: 1.63, d: 2.35, h: 2.26, price: 1629, color: '#1b1c1f', zone: { f: 0.5, b: 0.3, s: 0.3 }, pullup: true, build: buildDuality },
   predator: { name: 'Banc Predator', cat: 'force', w: 0.655, d: 1.5, h: 0.46, price: 379, priceOf: (it) => 379 + (it.evo ? 199 : 0), color: '#1a1b1d', zone: { f: 0.3, b: 0.3, s: 0.5 }, zoneOk: true, evo: true, build: buildPredator },
+  r7cage: { name: 'Atletica R7 Cage 224 cm', cat: 'force', w: 1.22, d: 1.86, h: 2.24, price: 1099, color: '#1b1c1f', zone: { f: 0.8, b: 0.3, s: 0.4 }, pullup: true, build: buildR7Cage },
   rack: { name: 'Power rack', cat: 'force', w: 1.22, d: 1.4, h: 2.3, price: 690, color: '#1c1d20', zone: { f: 1.0, b: 0.2, s: 0.5 }, pullup: true, build: buildRack },
   wallrack: { name: 'Rack mural repliable', cat: 'force', w: 1.2, d: 0.56, h: 2.2, price: 520, color: '#1c1d20', zone: { f: 1.4, b: 0, s: 0.55 }, wall: true, pullup: true, build: buildWallRack },
   bench: { name: 'Banc réglable', cat: 'force', w: 0.6, d: 1.35, h: 0.45, price: 260, color: '#1e2024', zone: { f: 0.3, b: 0.3, s: 0.5 }, zoneOk: true, build: buildBench },
