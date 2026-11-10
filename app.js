@@ -709,51 +709,60 @@ function buildR7Cage(it) {
   g.add(cy(0.03, 0.2, ch, 'z', xs[0], 0.12, dz + 0.2, 12));
   return g;
 }
-// Atletica Harrier : station à poulie 171 × 100,5 × 210,8 cm. Colonne centrale à l'arrière avec deux piles de 90 kg
-// et panneau à exercices ; deux montants inox à l'avant (21 positions) avec poulies pivotantes ; base en V et cadre haut
-// en triangle avec barre de traction multiprises.
+// Atletica Harrier : station à poulie d'angle, 171 × 100,5 × 210,8 cm. Vue de dessus, un triangle :
+// colonne centrale à la pointe arrière (deux piles de 90 kg de part et d'autre), deux bras à 45° vers les montants
+// inox avant (poulies pivotantes, 21 positions), traverse avant avec barre de traction multiprises en avancée.
+// Emprise au sol : hexagone qui suit la pointe, les piles et les montants (voir harrierPoly).
+function harrierPoly(it, pad = null) {
+  const { w, d } = it, k = d / 1.005, kw = w / 1.71, fz = -d / 2 + 0.855 * k;
+  if (!pad) return [[-0.06 * kw, -d / 2], [0.06 * kw, -d / 2], [0.37 * kw, -d / 2 + 0.06 * k], [w / 2, fz], [-w / 2, fz], [-0.37 * kw, -d / 2 + 0.06 * k]];
+  const sx = pad.s || 0, f = pad.f || 0;
+  return [[-0.06 * kw, -d / 2], [0.06 * kw, -d / 2], [0.37 * kw, -d / 2 + 0.06 * k], [w / 2 + sx, fz], [w / 2 + sx, fz + f], [-w / 2 - sx, fz + f], [-w / 2 - sx, fz], [-0.37 * kw, -d / 2 + 0.06 * k]];
+}
 function buildHarrier(it) {
   const g = new THREE.Group(), { w, d, h } = it, fr = M(it.color, 0.45, 0.35), inox = M('#c9ccd1', 0.28, 0.85), ch = CHROME(), dk = DARK();
   const cable = M('#111214', 0.6), stack = M('#1b1c1f', 0.5, 0.4), label = M('#8e949b', 0.5, 0.3);
-  const zT = -d / 2 + 0.15, xo = w / 2 - 0.09, zo = d / 2 - 0.16, top = h - 0.05;
-  // base en V et pieds sous les montants
-  for (const sx of [-1, 1]) {
-    g.add(slab([0, 0.04, zT], [sx * xo, 0.04, zo], 0.09, 0.08, fr));
-    g.add(bx(0.11, 0.05, 0.5, fr, sx * xo, 0.025, zo - 0.04));
-    for (const dz of [-0.27, 0.19]) g.add(bx(0.13, 0.015, 0.08, dk, sx * xo, 0.0075, zo + dz));
-  }
-  g.add(bx(0.62, 0.06, 0.3, fr, 0, 0.03, zT));
-  // colonne centrale : deux poteaux, deux piles, tiges de guidage, panneau avant
-  for (const sx of [-1, 1]) {
-    g.add(bx(0.07, top - 0.06, 0.2, fr, sx * 0.3, (top - 0.06) / 2 + 0.06, zT));
-    for (let i = 0; i < 18; i++) g.add(bx(0.17, 0.024, 0.13, stack, sx * 0.16, 0.1 + i * 0.026, zT));
-    for (const dz of [-0.045, 0.045]) g.add(cy(0.008, top - 0.2, ch, 'y', sx * 0.16, (top - 0.2) / 2 + 0.08, zT + dz, 8));
-    g.add(bx(0.17, 0.04, 0.14, fr, sx * 0.16, 0.6, zT));
-    g.add(cy(0.004, top - 0.75, cable, 'y', sx * 0.16, (top + 0.6) / 2, zT + 0.02, 4));
-  }
-  g.add(bx(0.26, top - 0.2, 0.04, fr, 0, (top - 0.2) / 2 + 0.12, zT + 0.12));
+  const k = d / 1.005, top = h - 0.05, back = -d / 2, fz = back + 0.855 * k;
+  const xo = w / 2 - 0.05, zo = fz - 0.04;                   // montants avant
+  const ang = Math.atan2(xo, zo - back);                     // angle des bras par rapport à l'axe avant-arrière
+  // colonne centrale à la pointe
+  const zT = back + 0.1;
+  g.add(bx(0.14, top, 0.14, fr, 0, top / 2, zT));
+  g.add(bx(0.26, top - 0.25, 0.04, fr, 0, (top - 0.25) / 2 + 0.12, zT + 0.12));
   g.add(bx(0.17, 0.75, 0.005, label, 0, top - 0.55, zT + 0.143));
-  g.add(bx(0.66, 0.07, 0.24, fr, 0, top - 0.035, zT));
-  // montants avant inox, perçages, poulies pivotantes avec poignée
+  // deux piles de part et d'autre, alignées sur les bras
+  for (const sx of [-1, 1]) {
+    const sg = new THREE.Group(); sg.position.set(sx * 0.27 * (w / 1.71), 0, back + 0.13 * k); sg.rotation.y = sx * (Math.PI / 2 - ang); g.add(sg);
+    for (let i = 0; i < 18; i++) sg.add(bx(0.2, 0.024, 0.13, stack, 0, 0.1 + i * 0.026, 0));
+    for (const dx of [-0.07, 0.07]) sg.add(cy(0.008, top - 0.2, ch, 'y', dx, (top - 0.2) / 2 + 0.08, 0, 8));
+    sg.add(bx(0.24, 0.05, 0.16, fr, 0, 0.03, 0));
+    sg.add(bx(0.24, 0.06, 0.16, fr, 0, top - 0.1, 0));
+    sg.add(bx(0.2, 0.04, 0.14, fr, 0, 0.62, 0));
+    sg.add(cy(0.004, top - 0.75, cable, 'y', 0, (top + 0.6) / 2, 0.03, 4));
+  }
   for (const sx of [-1, 1]) {
     const x = sx * xo;
+    // bras haut et piètement en V, de la colonne au montant
+    g.add(slab([0, top - 0.04, zT], [x, top - 0.04, zo], 0.08, 0.08, fr));
+    g.add(slab([sx * 0.08, top - 0.12, zT + 0.05], [x - sx * 0.06, top - 0.12, zo - 0.06], 0.05, 0.05, fr));
+    g.add(slab([0, 0.04, zT], [x, 0.04, zo], 0.09, 0.08, fr));
+    const foot = bx(0.11, 0.05, 0.42, fr, x, 0.025, zo); foot.rotation.y = -sx * (Math.PI / 2 - ang); g.add(foot);
+    // montant inox avec perçages, poulie pivotante et poignée
     g.add(bx(0.07, top, 0.1, inox, x, top / 2, zo));
     for (let i = 0; i < 21; i++) g.add(bx(0.022, 0.022, 0.004, dk, x, 0.25 + i * 0.075, zo + 0.051));
     g.add(bx(0.1, 0.16, 0.12, dk, x - sx * 0.07, 1.45, zo + 0.02));
     g.add(cy(0.07, 0.05, dk, 'x', x - sx * 0.14, 1.42, zo + 0.06, 20));
     g.add(beam([x - sx * 0.17, 1.36, zo + 0.08], [x - sx * 0.19, 1.2, zo + 0.08], 0.004, cable, 4));
-    const hdl = mesh(new THREE.TorusGeometry(0.06, 0.012, 8, 18), dk, x - sx * 0.19, 1.13, zo + 0.08); g.add(hdl);
+    g.add(mesh(new THREE.TorusGeometry(0.06, 0.012, 8, 18), dk, x - sx * 0.19, 1.13, zo + 0.08));
     g.add(cy(0.004, top - 1.5, cable, 'y', x - sx * 0.05, (top + 1.5) / 2, zo - 0.06, 4));
-    // bras haut en diagonale vers la colonne
-    g.add(slab([x, top - 0.02, zo], [sx * 0.33, top - 0.02, zT], 0.07, 0.07, fr));
-    g.add(beam([x - sx * 0.05, top - 0.07, zo - 0.06], [sx * 0.16, top - 0.07, zT + 0.02], 0.004, cable, 4));
+    g.add(beam([x - sx * 0.05, top - 0.13, zo - 0.06], [sx * 0.2, top - 0.13, back + 0.14], 0.004, cable, 4));
   }
-  // traverse avant avec logo et barre de traction multiprises
-  g.add(bx(2 * xo + 0.1, 0.08, 0.09, fr, 0, top - 0.04, zo));
+  // traverse avant (logo) et barre de traction multiprises en avancée
+  g.add(bx(2 * xo + 0.08, 0.08, 0.09, fr, 0, top - 0.04, zo));
   g.add(bx(0.24, 0.035, 0.004, label, 0, top - 0.04, zo + 0.047));
   for (const sx of [-1, 1]) {
-    g.add(slab([sx * 0.18, top - 0.02, zo + 0.04], [sx * 0.42, top + 0.0, zo + 0.32], 0.035, 0.035, dk, 0.012));
-    g.add(slab([sx * 0.42, top, zo + 0.32], [sx * 0.62, top - 0.02, zo + 0.06], 0.035, 0.035, dk, 0.012));
+    g.add(slab([sx * 0.2, top - 0.04, zo + 0.04], [sx * 0.2, top - 0.06, d / 2 - 0.06], 0.035, 0.035, dk, 0.012));
+    g.add(slab([sx * 0.2, top - 0.06, d / 2 - 0.04], [sx * 0.6, top - 0.04, d / 2 - 0.08], 0.035, 0.035, dk, 0.012));
   }
   return g;
 }
@@ -1066,7 +1075,7 @@ const CATALOG = {
   duality: { name: 'Atletica R8 Duality', cat: 'force', w: 1.63, d: 2.35, h: 2.26, price: 1629, color: '#1b1c1f', zone: { f: 0.5, b: 0.3, s: 0.3 }, pullup: true, build: buildDuality },
   predator: { name: 'Banc Predator', cat: 'force', w: 0.655, d: 1.5, h: 0.46, price: 379, priceOf: (it) => 379 + (it.evo ? 199 : 0), color: '#1a1b1d', zone: { f: 0.3, b: 0.3, s: 0.5 }, zoneOk: true, evo: true, build: buildPredator },
   r7cage: { name: 'Atletica R7 Cage 224 cm', cat: 'force', w: 1.22, d: 1.86, h: 2.24, price: 1099, color: '#1b1c1f', zone: { f: 0.8, b: 0.3, s: 0.4 }, pullup: true, build: buildR7Cage },
-  harrier: { name: 'Atletica Harrier', cat: 'force', w: 1.71, d: 1.005, h: 2.108, price: 1399, color: '#1b1c1f', zone: { f: 1.3, b: 0.1, s: 0.2 }, build: buildHarrier },
+  harrier: { name: 'Atletica Harrier', cat: 'force', w: 1.71, d: 1.005, h: 2.108, price: 1399, color: '#1b1c1f', zone: { f: 1.2, b: 0, s: 0.2 }, poly: harrierPoly, corner: true, build: buildHarrier },
   rack: { name: 'Power rack', cat: 'force', w: 1.22, d: 1.4, h: 2.3, price: 690, color: '#1c1d20', zone: { f: 1.0, b: 0.2, s: 0.5 }, pullup: true, build: buildRack },
   wallrack: { name: 'Rack mural repliable', cat: 'force', w: 1.2, d: 0.56, h: 2.2, price: 520, color: '#1c1d20', zone: { f: 1.4, b: 0, s: 0.55 }, wall: true, pullup: true, build: buildWallRack },
   bench: { name: 'Banc réglable', cat: 'force', w: 0.6, d: 1.35, h: 0.45, price: 260, color: '#1e2024', zone: { f: 0.3, b: 0.3, s: 0.5 }, zoneOk: true, build: buildBench },
@@ -1623,7 +1632,16 @@ function addItemObj(it) {
   itemsG.add(g);
   const over = new THREE.Group();
   const o = { g, over, zone: null, zoneLine: null, sel: null, tag: null };
-  if (def.zone) {
+  if (def.zone && def.poly) {
+    const zp = def.poly(it, def.zone), col = new THREE.Color(CATS[def.cat].color);
+    const shape = new THREE.Shape(zp.map(([x, z]) => new THREE.Vector2(x, -z)));
+    const zg = new THREE.ShapeGeometry(shape); zg.rotateX(-Math.PI / 2);
+    const zm = new THREE.Mesh(zg, new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.13, depthWrite: false, clippingPlanes: ROOM_CLIP }));
+    zm.material.userData.own = true; zm.position.y = 0.006; over.add(zm);
+    const ln = new THREE.Line(new THREE.BufferGeometry().setFromPoints([...zp, zp[0]].map(([x, z]) => new V3(x, 0.007, z))), new THREE.LineDashedMaterial({ color: col, dashSize: 0.1, gapSize: 0.06, transparent: true, opacity: 0.9, clippingPlanes: ROOM_CLIP }));
+    ln.computeLineDistances(); ln.material.userData.own = true; over.add(ln);
+    o.zone = zm; o.zoneLine = ln; o.zoneColor = col;
+  } else if (def.zone) {
     const z = def.zone, zw = it.w + 2 * z.s, zd = it.d + z.f + z.b, zc = (z.f - z.b) / 2;
     const col = new THREE.Color(CATS[def.cat].color);
     const zm = new THREE.Mesh(new THREE.PlaneGeometry(zw, zd), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.13, depthWrite: false, clippingPlanes: ROOM_CLIP }));
@@ -1662,7 +1680,13 @@ function showSelBox() {
   if (ui.sel?.kind !== 'item') return;
   const it = findSel(), o = itemObjs.get(it?.id); if (!it || !o) return;
   const [y0, y1] = vRange(it);
-  const geo = new THREE.EdgesGeometry(new THREE.BoxGeometry(it.w + 0.04, y1 - y0 + 0.02, it.d + 0.04));
+  let geo;
+  if (CATALOG[it.type].poly) {
+    const pts = CATALOG[it.type].poly(it).map(([x, z]) => new THREE.Vector2(x, -z));
+    const eg = new THREE.ExtrudeGeometry(new THREE.Shape(pts), { depth: y1 - y0 + 0.02, bevelEnabled: false });
+    eg.rotateX(-Math.PI / 2); eg.translate(0, -(y1 - y0 + 0.02) / 2, 0);
+    geo = new THREE.EdgesGeometry(eg); eg.dispose();
+  } else geo = new THREE.EdgesGeometry(new THREE.BoxGeometry(it.w + 0.04, y1 - y0 + 0.02, it.d + 0.04));
   const ln = new THREE.LineSegments(geo, new THREE.LineBasicMaterial({ color: 0xffc400, depthTest: false, transparent: true }));
   ln.position.y = (y0 + y1) / 2; ln.renderOrder = 30;
   o.over.add(ln); o.sel = ln;
@@ -1677,9 +1701,15 @@ function vRange(it) {
   const e = it.elev || 0; return [e, e + it.h];
 }
 function footprint(it, pad = null) {
-  const th = -it.rot * DEG, c = Math.cos(th), s = Math.sin(th);
+  const th = -it.rot * DEG, c = Math.cos(th), s = Math.sin(th), def = CATALOG[it.type];
+  if (def?.poly) return def.poly(it, pad).map(([lx, lz]) => [it.x + lx * c + lz * s, it.z - lx * s + lz * c]);
   const x0 = -it.w / 2 - (pad?.s || 0), x1 = it.w / 2 + (pad?.s || 0), z0 = -it.d / 2 - (pad?.b || 0), z1 = it.d / 2 + (pad?.f || 0);
   return [[x0, z0], [x1, z0], [x1, z1], [x0, z1]].map(([lx, lz]) => [it.x + lx * c + lz * s, it.z - lx * s + lz * c]);
+}
+// Décalages de l'emprise par rapport au centre, dans les axes de la pièce : { x0, x1, z0, z1 }.
+function extents(it) {
+  const pts = footprint({ ...it, x: 0, z: 0 });
+  return { x0: Math.min(...pts.map((p) => p[0])), x1: Math.max(...pts.map((p) => p[0])), z0: Math.min(...pts.map((p) => p[1])), z1: Math.max(...pts.map((p) => p[1])) };
 }
 function halfExtents(it) {
   const th = it.rot * DEG, c = Math.abs(Math.cos(th)), s = Math.abs(Math.sin(th));
@@ -1864,13 +1894,13 @@ function updateCotes() {
     if (sel.type === 'window') dim(b.clone().setY(0), b.clone().setY(y0), off, y0, (v) => setOpening(sel, { sill: v }), 'sub');
   }
   if (sel && ui.sel.kind === 'item') {
-    const it = sel, def = CATALOG[it.type], [ex, ez] = halfExtents(it), yy = 0.03;
-    const L = it.x - ex + W / 2, R = W / 2 - it.x - ex, N = it.z - ez + D / 2, S = D / 2 - it.z - ez;
+    const it = sel, def = CATALOG[it.type], e = extents(it), yy = 0.03;
+    const L = it.x + e.x0 + W / 2, R = W / 2 - it.x - e.x1, N = it.z + e.z0 + D / 2, S = D / 2 - it.z - e.z1;
     const zero = new V3();
-    if (L > 0.01) dim(new V3(-W / 2, yy, it.z), new V3(it.x - ex, yy, it.z), zero, L, (v) => moveItem(it, { x: -W / 2 + v + ex }), 'sub');
-    if (R > 0.01) dim(new V3(it.x + ex, yy, it.z), new V3(W / 2, yy, it.z), zero, R, (v) => moveItem(it, { x: W / 2 - v - ex }), 'sub');
-    if (N > 0.01) dim(new V3(it.x, yy, -D / 2), new V3(it.x, yy, it.z - ez), zero, N, (v) => moveItem(it, { z: -D / 2 + v + ez }), 'sub');
-    if (S > 0.01) dim(new V3(it.x, yy, it.z + ez), new V3(it.x, yy, D / 2), zero, S, (v) => moveItem(it, { z: D / 2 - v - ez }), 'sub');
+    if (L > 0.01) dim(new V3(-W / 2, yy, it.z), new V3(it.x + e.x0, yy, it.z), zero, L, (v) => moveItem(it, { x: -W / 2 + v - e.x0 }), 'sub');
+    if (R > 0.01) dim(new V3(it.x + e.x1, yy, it.z), new V3(W / 2, yy, it.z), zero, R, (v) => moveItem(it, { x: W / 2 - v - e.x1 }), 'sub');
+    if (N > 0.01) dim(new V3(it.x, yy, -D / 2), new V3(it.x, yy, it.z + e.z0), zero, N, (v) => moveItem(it, { z: -D / 2 + v - e.z0 }), 'sub');
+    if (S > 0.01) dim(new V3(it.x, yy, it.z + e.z1), new V3(it.x, yy, D / 2), zero, S, (v) => moveItem(it, { z: D / 2 - v - e.z1 }), 'sub');
     const th = -it.rot * DEG, c = Math.cos(th), s = Math.sin(th);
     const toW = (lx, ly, lz) => new V3(it.x + lx * c + lz * s, ly, it.z - lx * s + lz * c);
     const dirW = (lx, lz, k) => new V3(lx * c + lz * s, 0, -lx * s + lz * c).multiplyScalar(k);
@@ -1927,9 +1957,18 @@ function setOpening(op, p) {
 function clampItem(it) {
   const def = CATALOG[it.type], { w: W, d: D } = doc.room;
   if (def.wall) return snapToWall(it, it.x, it.z, true);
-  const [ex, ez] = halfExtents(it);
-  it.x = ex * 2 > W ? 0 : clamp(it.x, -W / 2 + ex, W / 2 - ex);
-  it.z = ez * 2 > D ? 0 : clamp(it.z, -D / 2 + ez, D / 2 - ez);
+  const e = extents(it);
+  it.x = e.x1 - e.x0 > W ? 0 : clamp(it.x, -W / 2 - e.x0, W / 2 - e.x1);
+  it.z = e.z1 - e.z0 > D ? 0 : clamp(it.z, -D / 2 - e.z0, D / 2 - e.z1);
+}
+// Pour une machine d'angle : si elle est près d'un coin, l'orienter pointe vers le coin et l'y caler.
+function snapToCorner(it, x, z, reach = 1.1) {
+  const { w: W, d: D } = doc.room;
+  const sx = x < 0 ? -1 : 1, sz = z < 0 ? -1 : 1;
+  if (Math.hypot(x - sx * W / 2, z - sz * D / 2) > reach + Math.max(it.w, it.d) / 2) return false;
+  it.rot = normRot(-Math.atan2(-sx, -sz) / DEG);
+  it.x = sx * W; it.z = sz * D; clampItem(it);
+  return true;
 }
 const ROT_SIDE = { 0: 'N', 90: 'E', 180: 'S', 270: 'W' };
 const SIDE_ROT = { N: 0, E: 90, S: 180, W: 270 };
@@ -1975,10 +2014,20 @@ function findFreeSpot(it) {
   }
   it.x = 0; it.z = 0; clampItem(it);
 }
+function findCorner(it) {
+  const { w: W, d: D } = doc.room;
+  for (const [sx, sz] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {
+    snapToCorner(it, sx * W / 2, sz * D / 2);
+    const fp = footprint(it, CATALOG[it.type].zone);
+    if (!doc.items.some((o) => !CATALOG[o.type].flat && polysOverlap(footprint(o), fp)) && !doc.openings.some((op) => polysOverlap(wallRect(op, op.type === 'door' ? op.w : 0.3), fp))) return;
+  }
+  findFreeSpot(it);
+}
 function addItem(type, at = null) {
   const it = mkItem(type, 0, 0, 0);
   if (at) { it.x = at.x; it.z = at.z; if (CATALOG[type].wall) snapToWall(it, at.x, at.z); else clampItem(it); }
   else if (CATALOG[type].wall) { snapToWall(it, 0, -doc.room.d / 2); findWallSpot(it); }
+  else if (CATALOG[type].corner) findCorner(it);
   else findFreeSpot(it);
   doc.items.push(it);
   addItemObj(it); refreshAnalysis();
@@ -2245,7 +2294,7 @@ function onPointerMove(e) {
   if (drag.kind === 'item') {
     const it = drag.it, def = CATALOG[it.type];
     let x = snap(p.x + drag.off.x, step), z = snap(p.z + drag.off.z, step);
-    if (def.wall) snapToWall(it, x, z); else { it.x = x; it.z = z; clampItem(it); }
+    if (def.wall) snapToWall(it, x, z); else if (!(def.corner && !e.altKey && snapToCorner(it, x, z, 0.6))) { it.x = x; it.z = z; clampItem(it); }
     placeItemObj(it); if (def.wall) showSelBox();
     refreshAnalysis(); updateCotes();
   } else {
