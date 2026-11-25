@@ -4,6 +4,21 @@ import { V3, DEG, UP, WALL_T, ISO_POLAR, STORE_KEY, SIDES, SIDE_NAME, SIDE_FROM,
 import { rng, hashStr, makeCanvas, grain, blotches, drawBrick, drawConcreteWall, woodGrain, drawLambris, drawOSB, drawMetro, drawRibs, drawFoam, drawRubber, drawPuzzle, drawEpoxy, drawConcreteFloor, drawParquet, drawTurf, WALL_SURF, FLOOR_SURF, texCache, surfTex, swatchURL, canvasTexture, _grooveTex, grooveTex, screenTex, tvTex, turfTex } from '../textures.js';
 import { envTex, matCache, M, CHROME, DARK, mesh, bx, rb, cy, beam, slab, PLATES, plate, barbell, dumbbell, KB, kettlebell, screenMesh } from '../kit.js';
 
+export const R8_CAGE = { p: 0.075 };
+// Groupe des pièces mobiles (chariot, pile) : l'application les fait monter et descendre quand la machine est sélectionnée.
+export function liftGroup(parent) { const l = new THREE.Group(); l.userData.lift = true; parent.add(l); return l; }
+// Barres à dips accrochées sur un montant, tournées vers l'avant (+z).
+export function addDips(g, x, z, fr) {
+  g.add(bx(0.12, 0.16, 0.06, fr, x, 1.2, z + 0.03));
+  for (const sx of [-1, 1]) g.add(slab([x + sx * 0.2, 1.24, z + 0.04], [x + sx * 0.28, 1.24, z + 0.5], 0.04, 0.04, fr));
+  for (const sx of [-1, 1]) g.add(cy(0.022, 0.18, DARK(), 'z', x + sx * 0.28, 1.25, z + 0.42, 10));
+}
+// Position locale de la barre sur les J-hooks du R8 Drift (la cage est côté x−, côté x+ si la tour est inversée).
+export function r8Hooks(it) {
+  const half = Math.min(0.3, it.w * 0.12), cw = Math.min(1.23, (it.w - half) * 0.55);
+  return { x: (it.flip ? 1 : -1) * (it.w / 2 - cw / 2), y: 1.46, z: it.d / 2 - R8_CAGE.p / 2 + 0.085 };
+}
+export function duality(it) { const cd = Math.min(1.23, it.d * 0.52); return { cd, zf: -it.d / 2 + cd - R8_CAGE.p / 2 }; }
 // Atletica R8 Drift : cage 123 × 123 cm + section centrale ouverte de 108 cm + demi-tour à poulie de 30 cm.
 // La tour est une colonne unique en bout de rack, avec un bras de tirage vertical en haut, une poulie réglable,
 // et à sa base (côté cage) la charge : chariot à disques, ou pile de 95 kg pour la version PRO (it.variant = 'stack').
@@ -66,16 +81,18 @@ export function buildR8Drift(it) {
   for (const dz of [-0.13, 0.13]) g.add(cy(0.011, h - 0.3, ch, 'y', sx, (h - 0.3) / 2 + 0.05, tz + dz, 8));
   g.add(bx(0.24, 0.05, 0.4, fr, sx, 0.025, tz));
   g.add(bx(0.2, 0.04, 0.32, fr, sx, h - 0.27, tz));
+  const L = liftGroup(g);
   if (it.variant === 'stack') {
     const plt = M('#1b1c1f', 0.5, 0.4);
-    for (let i = 0; i < 18; i++) g.add(bx(0.2, 0.022, 0.34, plt, sx, 0.08 + i * 0.025, tz));
-    g.add(bx(0.21, 0.04, 0.35, fr, sx, 0.08 + 18 * 0.025 + 0.02, tz));
+    for (let i = 0; i < 18; i++) (i >= 10 ? L : g).add(bx(0.2, 0.022, 0.34, plt, sx, 0.08 + i * 0.025, tz));
+    L.add(bx(0.21, 0.04, 0.35, fr, sx, 0.08 + 18 * 0.025 + 0.02, tz));
     g.add(cy(0.008, 0.08, M('#d7262e', 0.5), 'x', sx + 0.13, 0.08 + 9 * 0.025, tz, 8));
   } else {
-    g.add(bx(0.18, 0.06, 0.3, fr, sx, 0.14, tz));
-    g.add(cy(0.025, 0.62, ch, 'z', sx, 0.27, tz, 12));
-    for (const s of [-1, 1]) for (let i = 0; i < 2; i++) { const pl = plate(i ? 10 : 20, 'z'); pl.position.set(sx, 0.27, tz + s * (0.12 + i * 0.05)); g.add(pl); }
+    L.add(bx(0.18, 0.06, 0.3, fr, sx, 0.14, tz));
+    L.add(cy(0.025, 0.62, ch, 'z', sx, 0.27, tz, 12));
+    for (const s of [-1, 1]) for (let i = 0; i < 2; i++) { const pl = plate(i ? 10 : 20, 'z'); pl.position.set(sx, 0.27, tz + s * (0.12 + i * 0.05)); L.add(pl); }
   }
+  if (it.opts?.dips) addDips(g, xc[1], zs[1] + p / 2, fr);
   // cale-pieds incliné devant la charge
   const foot = bx(0.34, 0.025, 0.3, M('#2a2b2e', 0.6, 0.3), sx - 0.04, 0.12, tz + 0.5); foot.rotation.x = 0.6; g.add(foot);
   g.add(bx(0.08, 0.05, 0.42, fr, sx - 0.04, 0.025, tz + 0.42));
@@ -100,9 +117,10 @@ export function buildBradley(it) {
     for (const dz of [-0.11, 0.11]) g.add(cy(0.011, uh - 0.25, ch, 'y', x, (uh - 0.25) / 2 + 0.08, dz, 8));
     g.add(bx(0.09, 0.04, 0.3, fr, x, 0.06, 0));
     g.add(bx(0.09, 0.04, 0.3, fr, x, uh - 0.2, 0));
-    g.add(bx(0.1, 0.22, 0.26, fr, x, 0.28, 0));
-    g.add(cy(0.025, 0.36, ch, 'x', x + out * 0.23, 0.32, 0, 12));
-    for (let i = 0; i < 2; i++) { const pl = plate(i ? 10 : 20, 'x'); pl.position.set(x + out * (0.12 + i * 0.05), 0.32, 0); g.add(pl); }
+    const L = liftGroup(g);
+    L.add(bx(0.1, 0.22, 0.26, fr, x, 0.28, 0));
+    L.add(cy(0.025, 0.36, ch, 'x', x + out * 0.23, 0.32, 0, 12));
+    for (let i = 0; i < 2; i++) { const pl = plate(i ? 10 : 20, 'x'); pl.position.set(x + out * (0.12 + i * 0.05), 0.32, 0); L.add(pl); }
     // poulies hautes et câble
     for (const z of [-0.05, zs[1] - 0.12]) g.add(cy(0.045, 0.025, white, 'x', x - out * 0.0, h - 0.13, z, 18));
     g.add(cy(0.004, uh - 0.2 - 0.45, cable, 'y', x, (uh - 0.2 + 0.45) / 2, -0.05, 4));
@@ -122,6 +140,7 @@ export function buildBradley(it) {
   for (const x of xs) g.add(bx(0.05, 0.05, 0.22, fr, x, h - 0.01, zs[1] + 0.1));
   g.add(cy(0.016, w + 0.06, ch, 'x', 0, h - 0.01, zs[1] + 0.2, 14));
   const bb = barbell([20, 10]); bb.position.set(0, 1.46, zs[1] + 0.085); g.add(bb);
+  if (it.opts?.dips) addDips(g, xs[1], zs[1] + p / 2, fr);
   return g;
 }
 // Atletica R8 Duality long à charge libre : cage 123 × 123 cm à l'arrière + poulie vis-à-vis de 112 cm à l'avant.
@@ -149,9 +168,10 @@ export function buildDuality(it) {
     const zr = [zt - 0.13, zt - 0.33], zsl = (zr[0] + zr[1]) / 2;
     for (const z of zr) g.add(cy(0.011, h - 0.3, ch, 'y', x, (h - 0.3) / 2 + 0.08, z, 8));
     g.add(bx(0.08, 0.04, 0.3, fr, x, h - 0.2, zsl));
-    g.add(bx(0.1, 0.2, 0.24, fr, x, 0.26, zsl));
-    g.add(cy(0.025, 0.24, ch, 'x', x + out * 0.15, 0.3, zsl, 12));
-    for (let i = 0; i < 2; i++) { const pl = plate(i ? 10 : 20, 'x'); pl.position.set(x + out * (0.1 + i * 0.05), 0.3, zsl); g.add(pl); }
+    const L = liftGroup(g);
+    L.add(bx(0.1, 0.2, 0.24, fr, x, 0.26, zsl));
+    L.add(cy(0.025, 0.24, ch, 'x', x + out * 0.15, 0.3, zsl, 12));
+    for (let i = 0; i < 2; i++) { const pl = plate(i ? 10 : 20, 'x'); pl.position.set(x + out * (0.1 + i * 0.05), 0.3, zsl); L.add(pl); }
     g.add(cy(0.045, 0.025, white, 'x', x, h - 0.13, zsl, 18));
     g.add(cy(0.004, h - 0.2 - 0.38, cable, 'y', x, (h - 0.2 + 0.38) / 2, zsl, 4));
     g.add(bx(0.13, 0.2, 0.13, fr, x - out * 0.1, 1.55, zt));
@@ -168,6 +188,7 @@ export function buildDuality(it) {
   g.add(cy(0.016, cw + 0.04, ch, 'x', 0, h - 0.02, zt + 0.12, 14));
   for (const x of xs) g.add(bx(0.05, 0.05, 0.14, fr, x, h - 0.02, zt + 0.06));
   const bb = barbell([20, 10]); bb.position.set(0, 1.46, zf + 0.085); g.add(bb);
+  if (it.opts?.dips) addDips(g, xs[1], zf + p / 2, fr);
   return g;
 }
 // Atletica Predator : banc modulaire, poutre 110 × 60 mm, 150 × 65,5 × 46 cm, dossier 89,5 × 25 cm, assise 37 cm.
@@ -297,22 +318,23 @@ export function buildR7Cage(it) {
   g.add(cy(0.016, 1.2, ch, 'x', 0, 1.82, zr + 0.25, 12));
   for (const sx of [-1, 1]) g.add(slab([sx * 0.6, 1.82, zr + 0.25], [sx * 0.66, 1.72, zr + 0.25], 0.035, 0.035, ch));
   // chariot à disques en bas, cornes de chaque côté
-  g.add(bx(0.16, 0.24, 0.1, fr, 0, 0.32, zc + 0.09));
-  g.add(cy(0.025, 0.56, ch, 'x', 0, 0.3, zc + 0.09, 12));
-  for (const sx of [-1, 1]) for (let i = 0; i < 2; i++) { const pl = plate(i ? 10 : 20, 'x'); pl.position.set(sx * (0.13 + i * 0.05), 0.3, zc + 0.09); g.add(pl); }
+  const L = liftGroup(g);
+  L.add(bx(0.16, 0.24, 0.1, fr, 0, 0.32, zc + 0.09));
+  L.add(cy(0.025, 0.56, ch, 'x', 0, 0.3, zc + 0.09, 12));
+  for (const sx of [-1, 1]) for (let i = 0; i < 2; i++) { const pl = plate(i ? 10 : 20, 'x'); pl.position.set(sx * (0.13 + i * 0.05), 0.3, zc + 0.09); L.add(pl); }
   g.add(cy(0.004, h - 0.4, cable, 'y', 0, (h - 0.13 + 0.44) / 2, zc + 0.12, 4));
   // poulie basse et repose-pieds du rameur au pied de la colonne
   g.add(cy(0.045, 0.03, white, 'x', 0, 0.08, zr + 0.06, 18));
   const foot = bx(0.42, 0.025, 0.26, M('#2a2b2e', 0.6, 0.3), 0, 0.13, zr + 0.24); foot.rotation.x = -0.6; g.add(foot);
   g.add(bx(0.06, 0.06, 0.3, fr, 0, 0.03, zr + 0.18));
   // station à dips sur le montant avant droit, tournée vers l'avant
-  const dx = xs[1], dz = zf + p / 2;
-  g.add(bx(0.12, 0.16, 0.06, fr, dx, 1.2, dz + 0.03));
-  for (const sx of [-1, 1]) g.add(slab([dx + sx * 0.2, 1.24, dz + 0.04], [dx + sx * 0.28, 1.24, dz + 0.5], 0.04, 0.04, fr));
-  for (const sx of [-1, 1]) g.add(cy(0.022, 0.18, dk, 'z', dx + sx * 0.28, 1.25, dz + 0.42, 10));
+  const dz = zf + p / 2;
+  if (it.opts?.dips ?? true) addDips(g, xs[1], dz, fr);
   // landmine au pied du montant avant gauche
-  g.add(bx(0.12, 0.12, 0.12, fr, xs[0], 0.08, dz + 0.06));
-  g.add(cy(0.03, 0.2, ch, 'z', xs[0], 0.12, dz + 0.2, 12));
+  if (it.opts?.landmine ?? true) {
+    g.add(bx(0.12, 0.12, 0.12, fr, xs[0], 0.08, dz + 0.06));
+    g.add(cy(0.03, 0.2, ch, 'z', xs[0], 0.12, dz + 0.2, 12));
+  }
   return g;
 }
 // Atletica Harrier : station à poulie d'angle, 171 × 100,5 × 210,8 cm. Vue de dessus, un triangle :
@@ -339,7 +361,8 @@ export function buildHarrier(it) {
   // deux piles de part et d'autre, alignées sur les bras
   for (const sx of [-1, 1]) {
     const sg = new THREE.Group(); sg.position.set(sx * 0.27 * (w / 1.71), 0, back + 0.13 * k); sg.rotation.y = sx * (Math.PI / 2 - ang); g.add(sg);
-    for (let i = 0; i < 18; i++) sg.add(bx(0.2, 0.024, 0.13, stack, 0, 0.1 + i * 0.026, 0));
+    const Ls = liftGroup(sg);
+    for (let i = 0; i < 18; i++) (i >= 11 ? Ls : sg).add(bx(0.2, 0.024, 0.13, stack, 0, 0.1 + i * 0.026, 0));
     for (const dx of [-0.07, 0.07]) sg.add(cy(0.008, top - 0.2, ch, 'y', dx, (top - 0.2) / 2 + 0.08, 0, 8));
     sg.add(bx(0.24, 0.05, 0.16, fr, 0, 0.03, 0));
     sg.add(bx(0.24, 0.06, 0.16, fr, 0, top - 0.1, 0));

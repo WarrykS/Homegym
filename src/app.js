@@ -8,8 +8,7 @@ import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
 import { V3, DEG, UP, WALL_T, ISO_POLAR, STORE_KEY, SIDES, SIDE_NAME, SIDE_FROM, $, $$, clamp, uid, cm, snap, esc, euro, num, cssVar } from './util.js';
 import { rng, hashStr, makeCanvas, grain, blotches, drawBrick, drawConcreteWall, woodGrain, drawLambris, drawOSB, drawMetro, drawRibs, drawFoam, drawRubber, drawPuzzle, drawEpoxy, drawConcreteFloor, drawParquet, drawTurf, WALL_SURF, FLOOR_SURF, texCache, surfTex, swatchURL, canvasTexture, _grooveTex, grooveTex, screenTex, tvTex, turfTex } from './textures.js';
 import { envTex, setEnvTex, matCache, M, CHROME, DARK, mesh, bx, rb, cy, beam, slab, PLATES, plate, barbell, dumbbell, KB, kettlebell, screenMesh } from './kit.js';
-import { CATS, CATALOG, OPEN_DEF } from './catalog.js';
-import { buildR8Drift, buildBradley, buildDuality, EVO_EXT, buildPredator, buildOlyBar, buildEZ, buildBumperSet, buildL1Pair, buildR7Cage, harrierPoly, buildHarrier } from './models/atletica.js';
+import { CATS, CATALOG, OPEN_DEF, POSES, EVO_EXT, variantOf, optOn, nameOf, priceOf, kgOf, urlOf, exercisesOf } from './catalog.js';
 
 /* =========================================================================
    Home Gym Studio : implantation d'une salle de sport à la maison.
@@ -84,7 +83,7 @@ const PRESETS = {
     openings: [mkOpen('door', 'N', 3.3)],
     items: [
       mkItem('platform', 0.4, -0.75),
-      mkItem('rack', 0.4, -0.95, 0, { h: 2.0 }),
+      mkItem('r7cage', 0.4, -1.0, 0, { variant: '204', h: 2.04 }),
       mkItem('bench', -1.5, 0.6, 0),
       mkItem('dumbbells', 1.95, 0.9, 90),
       mkItem('bag', -1.3, -1.2),
@@ -96,8 +95,9 @@ const PRESETS = {
    État, historique, sauvegarde
 --------------------------------------------------------------------------- */
 let doc = null;
-const ui = { view: 'iso', sel: null, isoAz: Math.PI / 4 };
+const ui = { view: 'iso', sel: null, isoAz: Math.PI / 4, elevSide: 'N', readonly: false };
 const hist = { stack: [], idx: -1 };
+const PLATE_KG = [25, 20, 15, 10, 5, 2.5, 1.25];
 
 function normalizeDoc(d) {
   const p = PRESETS.double();
@@ -110,7 +110,14 @@ function normalizeDoc(d) {
     opts: { ...baseOpts(), ...(d?.opts || {}) },
     openings: [], items: [],
     migr: Array.isArray(d?.migr) ? d.migr : ['r8drift'],
+    floorType: d?.floorType === 'plancher' ? 'plancher' : 'dalle',
+    plates: {}, session: [],
   };
+  for (const kg of PLATE_KG) out.plates[kg] = clamp(Math.round(num(d?.plates?.[kg], 0)), 0, 99);
+  for (const x of Array.isArray(d?.session) ? d.session.slice(0, 60) : []) {
+    if (typeof x?.ex !== 'string') continue;
+    out.session.push({ id: String(x.id || uid()), ex: x.ex.slice(0, 80), on: typeof x.on === 'string' ? x.on.slice(0, 80) : '', sets: clamp(Math.round(num(x.sets, 3)), 1, 20), reps: clamp(Math.round(num(x.reps, 10)), 1, 100), kg: clamp(num(x.kg, 0), 0, 500) });
+  }
   for (const s of SIDES) {
     const wl = d?.walls?.[s];
     const mat = WALL_SURF[wl?.mat] ? wl.mat : 'paint';
@@ -123,11 +130,15 @@ function normalizeDoc(d) {
   }
   for (const it of Array.isArray(d?.items) ? d.items : []) {
     const def = CATALOG[it?.type]; if (!def) continue;
-    out.items.push({ id: String(it.id || uid()), type: it.type, x: num(it.x, 0), z: num(it.z, 0), rot: num(it.rot, 0), w: clamp(num(it.w, def.w), 0.01, 8), d: clamp(num(it.d, def.d), 0.01, 8), h: clamp(num(it.h, def.h), 0.005, 4.4), elev: clamp(num(it.elev, def.elev || 0), 0, 4), color: /^#[0-9a-f]{6}$/i.test(it.color) ? it.color : def.color, ...(it.flip ? { flip: true } : {}), ...(it.variant === 'stack' ? { variant: 'stack' } : {}), ...(it.evo ? { evo: true } : {}) });
+    out.items.push({ id: String(it.id || uid()), type: it.type, x: num(it.x, 0), z: num(it.z, 0), rot: num(it.rot, 0), w: clamp(num(it.w, def.w), 0.01, 8), d: clamp(num(it.d, def.d), 0.01, 8), h: clamp(num(it.h, def.h), 0.005, 4.4), elev: clamp(num(it.elev, def.elev || 0), 0, 4), color: /^#[0-9a-f]{6}$/i.test(it.color) ? it.color : def.color, ...(it.flip ? { flip: true } : {}), ...(it.evo ? { evo: true } : {}), ...(it.bought ? { bought: true } : {}),
+      ...(def.variants?.some((v) => v.v === it.variant) ? { variant: it.variant } : {}),
+      ...(it.opts && typeof it.opts === 'object' ? { opts: Object.fromEntries(Object.entries(it.opts).filter(([k]) => def.options?.some((o) => o.key === k)).map(([k, v]) => [k, !!v])) } : {}),
+      ...(def.text ? { text: String(it.text ?? 'HOME GYM').slice(0, 40) } : {}),
+      ...(def.custom ? { label: String(it.label || 'Équipement').slice(0, 60), price: clamp(num(it.price, 0), 0, 1e6), kg: clamp(num(it.kg, 0), 0, 5000), url: /^https:\/\//.test(it.url || '') ? String(it.url).slice(0, 500) : '' } : {}) });
   }
   return out;
 }
-function save() { try { localStorage.setItem(STORE_KEY, JSON.stringify(doc)); } catch { /* stockage indisponible */ } }
+function save() { if (ui.readonly) return; try { localStorage.setItem(STORE_KEY, JSON.stringify(doc)); } catch { /* stockage indisponible */ } }
 function loadSaved() {
   try {
     const s = localStorage.getItem(STORE_KEY); if (!s) return null;
@@ -222,7 +233,7 @@ function initRenderer() {
   hemi = new THREE.HemisphereLight(0xffffff, 0x444444, 1);
   key = new THREE.DirectionalLight(0xffffff, 2);
   key.castShadow = true;
-  key.shadow.mapSize.set(2048, 2048);
+  key.shadow.mapSize.set(4096, 4096);
   key.shadow.bias = -0.0003;
   key.shadow.normalBias = 0.02;
   key.shadow.radius = 3;
@@ -242,7 +253,7 @@ function makeControls() {
   ctlP.minDistance = 0.6; ctlP.maxDistance = 40; ctlP.maxPolarAngle = Math.PI / 2 - 0.03;
   ctlO.addEventListener('change', () => { if (ui.view === 'iso') ui.isoAz = ctlO.getAzimuthalAngle(); });
 }
-const activeCtl = () => (ui.view === 'plan' || ui.view === 'iso' ? ctlO : ui.view === 'orbit' ? ctlP : null);
+const activeCtl = () => (ui.view === 'plan' || ui.view === 'iso' || ui.view === 'elev' ? ctlO : ui.view === 'orbit' ? ctlP : null);
 
 const LIGHTS = {
   day: { ceil: 0.55, sky: '#bdd2e5', hemi: [0xeef3fa, 0x6f675b, 1.15], key: [0xfff3e2, 2.3], exp: 1.0, fix: '#ffffff', fixI: 1.4, pts: [] },
@@ -270,7 +281,7 @@ function applyLight() {
 }
 function updateBackground() {
   if (!scene) return;
-  const ortho = ui.view === 'plan' || ui.view === 'iso';
+  const ortho = ui.view === 'plan' || ui.view === 'iso' || ui.view === 'elev';
   scene.background = new THREE.Color(ortho ? (cssVar('--stage') || '#d9dee4') : LIGHTS[doc.light].sky);
 }
 
@@ -304,7 +315,7 @@ function surfMat(kind, key, color) {
   let m = surfMatCache.get(ck);
   if (!m) {
     m = new THREE.MeshStandardMaterial({ map: surfTex(kind, key).tex, color: new THREE.Color(color), roughness: def.rough ?? 0.9, metalness: def.metal || 0 });
-    if (def.metal) m.envMap = envTex;
+    if (def.metal || (def.rough ?? 0.9) < 0.5) { m.envMap = envTex; m.envMapIntensity = def.metal ? 1 : 0.45; }
     surfMatCache.set(ck, m);
   }
   return m;
@@ -537,7 +548,8 @@ function addItemObj(it) {
   g.traverse((m) => { if (m.isMesh) m.userData.itemId = it.id; });
   itemsG.add(g);
   const over = new THREE.Group();
-  const o = { g, over, zone: null, zoneLine: null, sel: null, tag: null };
+  const o = { g, over, zone: null, zoneLine: null, sel: null, tag: null, lifts: [] };
+  g.traverse((m) => { if (m.userData.lift) o.lifts.push(m); });
   if (def.zone && def.poly) {
     const zp = def.poly(it, def.zone), col = new THREE.Color(CATS[def.cat].color);
     const shape = new THREE.Shape(zp.map(([x, z]) => new THREE.Vector2(x, -z)));
@@ -557,7 +569,7 @@ function addItemObj(it) {
     ln.computeLineDistances(); ln.material.userData.own = true; over.add(ln);
     o.zone = zm; o.zoneLine = ln; o.zoneColor = col;
   }
-  const tagEl = document.createElement('div'); tagEl.className = 'name-tag'; tagEl.textContent = def.name;
+  const tagEl = document.createElement('div'); tagEl.className = 'name-tag'; tagEl.textContent = nameOf(it);
   const [, y1] = vRange(it);
   o.tag = new CSS2DObject(tagEl); o.tag.position.set(0, Math.min(y1, doc.room.h) + 0.05, def.flat ? it.d / 2 - 0.25 : 0); over.add(o.tag);
   o.tag.userData.hideTag = def.wall && (it.elev || 0) > 1;
@@ -570,7 +582,7 @@ function addItemObj(it) {
 function placeItemObj(it) {
   const o = itemObjs.get(it.id); if (!o) return;
   const def = CATALOG[it.type];
-  o.g.position.set(it.x, def.hang ? 0 : it.elev || 0, it.z);
+  o.g.position.set(it.x, def.hang || def.ceiling ? 0 : it.elev || 0, it.z);
   o.g.rotation.y = -it.rot * DEG;
   o.over.position.set(it.x, 0, it.z);
   o.over.rotation.y = -it.rot * DEG;
@@ -604,6 +616,7 @@ function showSelBox() {
 function vRange(it) {
   const def = CATALOG[it.type];
   if (def.hang) { const H = doc.room.h, top = Math.max(it.h + 0.3, H - 0.45); return [top - it.h, H]; }
+  if (def.ceiling) return [doc.room.h - it.h, doc.room.h];
   const e = it.elev || 0; return [e, e + it.h];
 }
 function footprint(it, pad = null) {
@@ -656,6 +669,31 @@ function analyze() {
     if (!def.hang && y1 > H + 0.001) add(it.id, `Plus haut que le plafond (${cm(y1)} cm pour ${cm(H)} cm)`);
     else if (def.pullup && H - y1 < 0.3) add(it.id, `Seulement ${cm(H - y1)} cm sous le plafond : les tractions seront difficiles`, 'soft');
     if (def.hang && y0 < 0.15) add(it.id, 'Trop long pour cette hauteur sous plafond');
+    if (def.person) {
+      const pose = POSES[it.variant] ? it.variant : 'debout', need = POSES[pose].need(it.h);
+      if (need > H + 0.001) add(it.id, `Il faut environ ${cm(need)} cm sous plafond pour ce mouvement (plafond à ${cm(H)} cm)`);
+    }
+    if (def.loadPad) {
+      const lp = footprint(it, { s: def.loadPad.s || 0, b: def.loadPad.b || 0, f: 0 });
+      if (lp.some(([x, z]) => Math.abs(x) > W / 2 + 0.006 || Math.abs(z) > D / 2 + 0.006)) add(it.id, `Moins de ${cm(def.loadPad.s || def.loadPad.b)} cm contre le mur : peu de place pour charger les disques`, 'soft');
+    }
+    const kg = kgOf(it), area = it.w * it.d;
+    if (kg > 0 && area > 0.02 && !def.flat && !def.wall && !def.ceiling && !def.hang) {
+      const dens = kg / area, lim = doc.floorType === 'plancher' ? 150 : 1500;
+      if (dens > lim) add(it.id, `≈ ${Math.round(dens)} kg/m² au sol (hors disques)${doc.floorType === 'plancher' ? " : au-delà des 150 kg/m² d'un plancher d'habitation, fais vérifier" : ''}`, 'soft');
+    }
+  }
+  const outlets = doc.items.filter((o) => CATALOG[o.type].outlet);
+  const powered = doc.items.filter((o) => CATALOG[o.type].power);
+  if (powered.length && !outlets.length) res.global.push({ msg: `${powered.length} appareil${powered.length > 1 ? 's' : ''} à brancher et aucune prise placée : ajoute-les depuis « Électricité et aération ».`, lvl: 'soft' });
+  else for (const it of powered) {
+    const r = Math.max(it.w, it.d) / 2 + 1.5;
+    if (!outlets.some((o) => Math.hypot(o.x - it.x, o.z - it.z) <= r)) add(it.id, 'Pas de prise électrique à moins de 1,5 m', 'soft');
+  }
+  if (!doc.openings.some((o) => o.type === 'window') && !doc.items.some((o) => CATALOG[o.type].airflow)) res.global.push({ msg: "Pas de fenêtre ni d'aération : prévois un aérateur ou un déshumidificateur, surtout dans un garage ou un sous-sol.", lvl: 'soft' });
+  if (doc.floorType === 'plancher') {
+    const tot = doc.items.reduce((a, it) => a + kgOf(it), 0) + PLATE_KG.reduce((a, kg) => a + kg * (doc.plates[kg] || 0), 0);
+    res.global.push({ msg: `Plancher : environ ${Math.round(tot)} kg d'équipement et de disques, soit ${Math.round(tot / (W * D))} kg/m² en moyenne. Au-delà de 150 kg/m² localement, demande l'avis d'un pro.`, lvl: 'soft' });
   }
   const list = doc.items;
   for (let i = 0; i < list.length; i++) for (let j = i + 1; j < list.length; j++) {
@@ -663,14 +701,24 @@ function analyze() {
     if (da.flat || db.flat || da.noCollide || db.noCollide) continue;
     const [a0, a1] = vRange(a), [b0, b1] = vRange(b);
     if (a1 <= b0 + 0.005 || b1 <= a0 + 0.005) continue;
-    if (polysOverlap(polys.get(a.id), polys.get(b.id))) { add(a.id, `Chevauche « ${db.name} »`); add(b.id, `Chevauche « ${da.name} »`); }
+    if (polysOverlap(polys.get(a.id), polys.get(b.id))) { add(a.id, `Chevauche « ${nameOf(b)} »`); add(b.id, `Chevauche « ${nameOf(a)} »`); }
+  }
+  // la barre d'une silhouette (soulevé de terre, développé militaire) ne doit rien toucher
+  for (const p of list) {
+    if (!CATALOG[p.type].person || !['souleve', 'militaire'].includes(p.variant)) continue;
+    for (const b of list) {
+      const db = CATALOG[b.type]; if (b === p || db.flat || db.person || db.ceiling || db.outlet) continue;
+      const [b0, b1] = vRange(b), y = p.variant === 'souleve' ? 0.225 : 1.19 * p.h;
+      if (y < b0 - 0.25 || y > b1 + 0.25) continue;
+      if (polysOverlap(polys.get(p.id), polys.get(b.id))) add(p.id, `La barre touche « ${nameOf(b)} »`, 'soft');
+    }
   }
   for (const a of list) {
     const za = zones.get(a.id); if (!za) continue;
     for (const b of list) {
-      if (a === b || CATALOG[b.type].flat || CATALOG[b.type].noCollide || CATALOG[b.type].zoneOk || res.items[b.id]?.some((m) => m.msg.includes(CATALOG[a.type].name))) continue;
+      if (a === b || CATALOG[b.type].flat || CATALOG[b.type].noCollide || CATALOG[b.type].zoneOk || res.items[b.id]?.some((m) => m.msg.includes(nameOf(a)))) continue;
       const [b0] = vRange(b); if (b0 > 1.2) continue;
-      if (polysOverlap(za, polys.get(b.id))) add(b.id, `Empiète sur l'espace d'usage de « ${CATALOG[a.type].name} »`, 'soft');
+      if (polysOverlap(za, polys.get(b.id))) add(b.id, `Empiète sur l'espace d'usage de « ${nameOf(a)} »`, 'soft');
     }
   }
   for (const op of doc.openings) {
@@ -702,8 +750,84 @@ function analyze() {
     for (let i = 1; i < ops.length; i++) if (ops[i].pos < ops[i - 1].pos + ops[i - 1].w - 0.001) res.global.push({ msg: `Deux ouvertures se chevauchent sur le mur ${SIDE_NAME[s]}.`, lvl: 'bad' });
   }
   if (H < 2.4) res.global.push({ msg: `Plafond à ${cm(H)} cm : pour un développé militaire debout, compte environ 2,40 m.`, lvl: 'soft' });
+  if (!drag) circ = computeCirculation();
+  for (const id of circ.unreachable) add(id, 'Passage de moins de 80 cm pour y accéder depuis une porte', 'soft');
   return res;
 }
+
+/* Circulation : grille de 10 cm. Une personne (80 cm de large) peut-elle aller de chaque porte à chaque équipement ?
+   Donne aussi la surface au sol restée libre (hors machines et espaces d'usage). */
+let circ = { unreachable: new Set(), free: null };
+function pointInPoly(x, z, P) {
+  let inside = false;
+  for (let i = 0, j = P.length - 1; i < P.length; j = i++) {
+    const [xi, zi] = P[i], [xj, zj] = P[j];
+    if ((zi > z) !== (zj > z) && x < ((xj - xi) * (z - zi)) / (zj - zi) + xi) inside = !inside;
+  }
+  return inside;
+}
+function distToPoly(x, z, P) {
+  if (pointInPoly(x, z, P)) return 0;
+  let best = Infinity;
+  for (let i = 0; i < P.length; i++) {
+    const [ax, az] = P[i], [bx2, bz] = P[(i + 1) % P.length], dx = bx2 - ax, dz = bz - az;
+    const t = clamp(((x - ax) * dx + (z - az) * dz) / (dx * dx + dz * dz || 1), 0, 1);
+    best = Math.min(best, Math.hypot(x - ax - t * dx, z - az - t * dz));
+  }
+  return best;
+}
+function computeCirculation() {
+  const { w: W, d: D } = doc.room, st = 0.1, nx = Math.max(1, Math.round(W / st)), nz = Math.max(1, Math.round(D / st)), R = 0.4;
+  const solid = (it) => { const def = CATALOG[it.type]; if (def.flat || def.person || def.ceiling || def.outlet || def.lift || (def.wall && it.d < 0.1)) return false; return vRange(it)[0] < 1.0; };
+  const obst = doc.items.filter(solid).map((it) => ({ it, P: footprint(it) }));
+  const used = doc.items.filter((it) => !CATALOG[it.type].person && !CATALOG[it.type].ceiling && !CATALOG[it.type].outlet && vRange(it)[0] < 1.0)
+    .flatMap((it) => [footprint(it), ...(CATALOG[it.type].zone ? [footprint(it, CATALOG[it.type].zone)] : [])]);
+  const cx = (i) => -W / 2 + (i + 0.5) * st, cz = (j) => -D / 2 + (j + 0.5) * st;
+  const blocked = new Uint8Array(nx * nz); let free = 0;
+  for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) {
+    const x = cx(i), z = cz(j);
+    if (!used.some((P) => pointInPoly(x, z, P))) free++;
+    if (x < -W / 2 + R - 0.02 || x > W / 2 - R + 0.02 || z < -D / 2 + R - 0.02 || z > D / 2 - R + 0.02 || obst.some((o) => distToPoly(x, z, o.P) < R - 0.02)) blocked[j * nx + i] = 1;
+  }
+  const out = { unreachable: new Set(), free: free * st * st };
+  const doors = doc.openings.filter((o) => o.type !== 'window');
+  if (!doors.length) return out;
+  const seen = new Uint8Array(nx * nz), queue = [];
+  for (const op of doors) {
+    const info = wallInfo(op.wall);
+    for (let u = op.pos + 0.1; u <= op.pos + op.w - 0.1; u += st) {
+      const p = info.o.clone().addScaledVector(info.u, u).addScaledVector(info.n, R + 0.05);
+      const i = clamp(Math.floor((p.x + W / 2) / st), 0, nx - 1), j = clamp(Math.floor((p.z + D / 2) / st), 0, nz - 1), k = j * nx + i;
+      if (!blocked[k] && !seen[k]) { seen[k] = 1; queue.push(k); }
+    }
+  }
+  for (let q = 0; q < queue.length; q++) {
+    const k = queue[q], i = k % nx, j = (k / nx) | 0;
+    for (const [di, dj] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const a = i + di, b = j + dj; if (a < 0 || b < 0 || a >= nx || b >= nz) continue;
+      const n = b * nx + a; if (!blocked[n] && !seen[n]) { seen[n] = 1; queue.push(n); }
+    }
+  }
+  for (const { it, P } of obst) {
+    if (!CATALOG[it.type].zone) continue; // seuls les équipements avec un espace d'usage doivent être accessibles
+    let ok = false;
+    for (let j = 0; j < nz && !ok; j++) for (let i = 0; i < nx && !ok; i++) if (seen[j * nx + i] && distToPoly(cx(i), cz(j), P) < R + 0.3) ok = true;
+    if (!ok) out.unreachable.add(it.id);
+  }
+  return out;
+}
+// Disques : ceux des sets placés dans la salle plus ceux saisis à la main.
+function platesOwned() {
+  const bumper = {}, iron = {};
+  for (const kg of PLATE_KG) { bumper[kg] = doc.plates[kg] || 0; iron[kg] = 0; }
+  for (const it of doc.items) {
+    const def = CATALOG[it.type];
+    for (const [kg, n] of Object.entries(def.plates || {})) bumper[kg] = (bumper[kg] || 0) + n;
+    for (const [kg, n] of Object.entries(def.ironPlates || {})) iron[kg] = (iron[kg] || 0) + n;
+  }
+  return { bumper, iron };
+}
+function platesKg() { const p = platesOwned(); return PLATE_KG.reduce((a, kg) => a + kg * (p.bumper[kg] || 0), 0); }
 function refreshAnalysis() {
   analysis = analyze();
   for (const [id, o] of itemObjs) {
@@ -895,12 +1019,31 @@ function moveItem(it, p) {
 }
 function setItem(it, p) {
   const def = CATALOG[it.type];
-  for (const k of ['w', 'd', 'h']) if (p[k] != null) it[k] = clamp(p[k], k === 'h' && def.flat ? 0.005 : 0.05, 8);
+  for (const k of ['w', 'd', 'h']) if (p[k] != null) it[k] = clamp(p[k], (k === 'h' && def.flat) || (k === 'd' && def.wall) ? 0.005 : 0.05, 8);
   if (p.elev != null) it.elev = clamp(p.elev, 0, doc.room.h - it.h);
   if (p.rot != null) it.rot = ((Math.round(p.rot) % 360) + 360) % 360;
   if (p.color) it.color = p.color;
   if (def.wall) snapToWall(it, it.x, it.z, true); else clampItem(it);
   rebuildItem(it); updateCotes();
+}
+function applyVariant(it, v) {
+  const def = CATALOG[it.type], x = def.variants?.find((q) => q.v === v); if (!x) return;
+  it.variant = v;
+  for (const k of ['w', 'd', 'h']) if (x[k] != null) it[k] = x[k];
+  if (def.wall) snapToWall(it, it.x, it.z, true); else clampItem(it);
+  rebuildItem(it); showSelBox(); updateCotes(); commit(); renderInspector(); renderLists();
+}
+// Une barre lâchée dans un rack se pose sur ses J-hooks ; sortie d'un rack, elle revient au sol.
+function snapToHooks(it) {
+  for (const r of doc.items) {
+    const rd = CATALOG[r.type]; if (!rd.hooks || r === it) continue;
+    if (!pointInPoly(it.x, it.z, footprint(r, { f: 0.3, b: 0, s: 0 }))) continue;
+    const h = rd.hooks(r), th = -r.rot * DEG, c = Math.cos(th), sn = Math.sin(th);
+    it.x = r.x + h.x * c + h.z * sn; it.z = r.z - h.x * sn + h.z * c; it.rot = r.rot; it.elev = h.y - 0.025;
+    return r;
+  }
+  if (it.elev > 0.3) it.elev = 0;
+  return null;
 }
 function rotateSel(delta) {
   const it = findSel(); if (!it || ui.sel.kind !== 'item') return;
@@ -912,11 +1055,11 @@ function findFreeSpot(it) {
   const { w: W, d: D } = doc.room, cands = [];
   for (let x = -W / 2; x <= W / 2; x += 0.25) for (let z = -D / 2; z <= D / 2; z += 0.25) cands.push([x, z]);
   cands.sort((a, b) => Math.hypot(...a) - Math.hypot(...b));
-  const others = doc.items.filter((o) => o !== it && !CATALOG[o.type].flat).map((o) => footprint(o, CATALOG[o.type].zone ? { f: 0.1, b: 0.1, s: 0.1 } : null));
+  const others = doc.items.filter((o) => o !== it && !CATALOG[o.type].flat && !CATALOG[o.type].ceiling && !CATALOG[o.type].outlet).map((o) => footprint(o, CATALOG[o.type].zone ? { f: 0.1, b: 0.1, s: 0.1 } : null));
   for (const [x, z] of cands) {
     it.x = x; it.z = z; clampItem(it);
     const fp = footprint(it, { f: 0.1, b: 0.1, s: 0.1 });
-    if (CATALOG[it.type].flat || !others.some((o) => polysOverlap(o, fp))) return;
+    if (CATALOG[it.type].flat || CATALOG[it.type].ceiling || !others.some((o) => polysOverlap(o, fp))) return;
   }
   it.x = 0; it.z = 0; clampItem(it);
 }
@@ -929,8 +1072,8 @@ function findCorner(it) {
   }
   findFreeSpot(it);
 }
-function addItem(type, at = null) {
-  const it = mkItem(type, 0, 0, 0);
+function addItem(type, at = null, extra = {}) {
+  const it = mkItem(type, 0, 0, 0, extra);
   if (at) { it.x = at.x; it.z = at.z; if (CATALOG[type].wall) snapToWall(it, at.x, at.z); else clampItem(it); }
   else if (CATALOG[type].wall) { snapToWall(it, 0, -doc.room.d / 2); findWallSpot(it); }
   else if (CATALOG[type].corner) findCorner(it);
@@ -939,7 +1082,7 @@ function addItem(type, at = null) {
   addItemObj(it); refreshAnalysis();
   select({ kind: 'item', id: it.id });
   commit(); renderPanels();
-  toast(`${CATALOG[type].name} ajouté`);
+  toast(`${nameOf(it)} ajouté`);
 }
 function findWallSpot(it) {
   const { w: W, d: D } = doc.room;
@@ -960,7 +1103,7 @@ function findWallSpot(it) {
 function duplicateSel() {
   const s = findSel(); if (!s) return;
   if (ui.sel.kind === 'item') {
-    const it = { ...s, id: uid() };
+    const it = { ...s, id: uid(), ...(s.opts ? { opts: { ...s.opts } } : {}) };
     it.x += 0.3; it.z += 0.3;
     if (CATALOG[it.type].wall) snapToWall(it, it.x, it.z, true); else clampItem(it);
     doc.items.push(it); addItemObj(it); refreshAnalysis(); select({ kind: 'item', id: it.id });
@@ -1036,6 +1179,12 @@ function fitView() {
     ctlO.target.set(0, h * 0.22, 0);
     placeSph(ortho, ctlO.target, ISO_POLAR, ui.isoAz, 60);
     ortho.zoom = 1; setOrthoFrustum(); ctlO.update();
+  } else if (ui.view === 'elev') {
+    const info = wallInfo(ui.elevSide), c = info.o.clone().addScaledVector(info.u, info.L / 2).setY(h / 2);
+    orthoVS = Math.max(h / 2 + 0.7, (info.L / 2 + 0.8) / a);
+    const az = Math.atan2(info.n.x, info.n.z);
+    ctlO.minAzimuthAngle = ctlO.maxAzimuthAngle = az; ctlO.minPolarAngle = ctlO.maxPolarAngle = Math.PI / 2;
+    ctlO.target.copy(c); ortho.position.copy(c).addScaledVector(info.n, 60); ortho.zoom = 1; setOrthoFrustum(); ctlO.update();
   } else if (ui.view === 'orbit') {
     const r = Math.max(w, d) * 1.25 + 2;
     ctlP.target.set(0, 0.8, 0);
@@ -1054,9 +1203,13 @@ function setView(v) {
   ui.view = v;
   $$('.views button').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.view === v)));
   ctlO.enabled = false; ctlP.enabled = false;
-  if (v === 'plan' || v === 'iso') {
+  if (v === 'plan' || v === 'iso' || v === 'elev') {
     camera = ortho; ctlO.enabled = true;
-    if (v === 'plan') {
+    if (v === 'elev') {
+      ctlO.enableRotate = false;
+      ctlO.mouseButtons = { LEFT: THREE.MOUSE.PAN, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.PAN };
+      ctlO.touches = { ONE: THREE.TOUCH.PAN, TWO: THREE.TOUCH.DOLLY_PAN };
+    } else if (v === 'plan') {
       ctlO.enableRotate = false; ctlO.minPolarAngle = 0; ctlO.maxPolarAngle = 0; ctlO.minAzimuthAngle = 0; ctlO.maxAzimuthAngle = 0;
       ctlO.mouseButtons = { LEFT: THREE.MOUSE.PAN, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.PAN };
       ctlO.touches = { ONE: THREE.TOUCH.PAN, TWO: THREE.TOUCH.DOLLY_PAN };
@@ -1072,7 +1225,9 @@ function setView(v) {
   }
   if (v !== 'walk') fitView();
   $('#viewTools').hidden = v === 'walk';
-  $('#btnRotL').hidden = $('#btnRotR').hidden = v === 'plan';
+  $('#btnRotL').hidden = $('#btnRotR').hidden = v === 'plan' || v === 'elev';
+  $('#elevSides').hidden = v !== 'elev';
+  $$('#elevSides button').forEach((b) => b.classList.toggle('on', b.dataset.side === ui.elevSide));
   $('#walkHud').hidden = v !== 'walk';
   for (const s of SIDES) if (cutState[s]) { cutState[s] = false; buildWall(s); }
   updateBackground(); updateVisibility(); updateCotes(); renderInspector(); onResize();
@@ -1123,7 +1278,8 @@ function updateCutaway() {
   const v = ui.view;
   for (const s of SIDES) {
     let want = false;
-    if ((v === 'iso' || v === 'orbit') && doc.wallMode !== 'full') {
+    if (v === 'elev') want = s === { N: 'S', S: 'N', E: 'W', W: 'E' }[ui.elevSide];
+    else if ((v === 'iso' || v === 'orbit') && doc.wallMode !== 'full') {
       if (doc.wallMode === 'low') want = true;
       else {
         const info = wallInfo(s), c = info.o.clone().addScaledVector(info.u, info.L / 2);
@@ -1212,6 +1368,11 @@ function onPointerMove(e) {
 function onPointerUp(e) {
   if (ui.view === 'walk') { walkPointerUp(e); return; }
   if (drag) {
+    if (drag.moved && drag.kind === 'item' && CATALOG[drag.it.type].lift) {
+      const was = drag.it.elev, r = snapToHooks(drag.it);
+      placeItemObj(drag.it); showSelBox(); refreshAnalysis(); updateCotes();
+      if (r) toast(`Barre posée sur les J-hooks : ${nameOf(r)}`); else if (was > 0.3) toast('Barre posée au sol');
+    }
     if (drag.moved) { if (drag.kind === 'opening') buildRoom(); commit(); renderPanels(); }
     renderInspector();
     drag = null;
@@ -1254,7 +1415,7 @@ function onKeyDown(e) {
     if (['1', '2', '3'].includes(k)) setView(['plan', 'iso', 'orbit'][+k - 1]);
     return;
   }
-  if (['1', '2', '3', '4'].includes(k)) { setView(['plan', 'iso', 'orbit', 'walk'][+k - 1]); return; }
+  if (['1', '2', '3', '4', '5'].includes(k)) { setView(['plan', 'iso', 'orbit', 'walk', 'elev'][+k - 1]); return; }
   if (k === 'Delete' || k === 'Backspace') { e.preventDefault(); deleteSel(); return; }
   if (k === 'r' || k === 'R') { rotateSel(e.shiftKey ? 15 : 90); return; }
   if (k === 'Escape') { select(null); return; }
@@ -1398,6 +1559,7 @@ function renderRoomPanel() {
   $('#wallMode').value = doc.wallMode;
   $('#optCotes').checked = doc.opts.cotes; $('#optZones').checked = doc.opts.zones; $('#optGrid').checked = doc.opts.grid;
   $('#optSnap').checked = doc.opts.snap; $('#optLabels').checked = doc.opts.labels;
+  $('#floorType').value = doc.floorType;
 }
 function renderWallCards() {
   $('#wallCards').innerHTML = SIDES.map((s) => {
@@ -1413,14 +1575,15 @@ function renderLists() {
   ol.innerHTML = doc.openings.length ? doc.openings.map((op) => `<li data-open="${op.id}" class="${ui.sel?.id === op.id ? 'on' : ''}"><span class="dot" style="background:${op.color}"></span><span class="name">${esc(OPEN_DEF[op.type].name)}</span><span class="meta">mur ${SIDE_NAME[op.wall]} · ${cm(op.w)}×${cm(op.h)}</span></li>`).join('')
     : '<li class="empty">Aucune ouverture pour l\'instant.</li>';
   const il = $('#itemList');
-  il.innerHTML = doc.items.length ? doc.items.map((it) => `<li data-item="${it.id}" class="${ui.sel?.id === it.id ? 'on' : ''}"><span class="dot" style="background:${CATS[CATALOG[it.type].cat].color}"></span><span class="name">${esc(CATALOG[it.type].name)}</span>${analysis.bad.has(it.id) ? '<span class="warn-dot" title="À vérifier"></span>' : ''}<span class="meta">${cm(it.w)}×${cm(it.d)}</span></li>`).join('')
+  il.innerHTML = doc.items.length ? doc.items.map((it) => `<li data-item="${it.id}" class="${ui.sel?.id === it.id ? 'on' : ''}"><span class="dot" style="background:${CATS[CATALOG[it.type].cat].color}"></span><span class="name">${esc(nameOf(it))}</span>${analysis.bad.has(it.id) ? '<span class="warn-dot" title="À vérifier"></span>' : ''}<span class="meta">${cm(it.w)}×${cm(it.d)}</span></li>`).join('')
     : '<li class="empty">Ta salle est vide : pioche dans le catalogue.</li>';
 }
 function renderCatalog() {
   const byCat = {};
-  for (const [k, d] of Object.entries(CATALOG)) (byCat[d.cat] ||= []).push([k, d]);
+  for (const [k, d] of Object.entries(CATALOG)) if (!d.hidden) (byCat[d.cat] ||= []).push([k, d]);
   $('#catalog').innerHTML = Object.entries(CATS).map(([ck, c]) => `<div class="cat"><h4><i style="background:${c.color}"></i>${esc(c.label)}</h4><div class="cards">${(byCat[ck] || []).map(([k, d]) => `
-    <button type="button" class="card" data-type="${k}" draggable="true" title="Ajouter : ${esc(d.name)}"><div class="thumb"><img alt="" data-thumb="${k}"></div><b>${esc(d.name)}</b><small>${cm(d.w)} × ${cm(d.d)} × ${cm(d.h)} cm · ${euro(d.price)}</small></button>`).join('')}</div></div>`).join('');
+    <button type="button" class="card" data-type="${k}" draggable="true" title="Ajouter : ${esc(d.name)}"><div class="thumb"><img alt="" data-thumb="${k}"></div><b>${esc(d.name)}</b><small>${cm(d.w)} × ${cm(d.d)} × ${cm(d.h)} cm${d.noBudget ? '' : ' · ' + euro(d.price)}</small></button>`).join('')}${ck === 'gabarit' ? `
+    <button type="button" class="card card-new" id="btnCustom"><div class="thumb"><span>+</span></div><b>Créer un équipement</b><small>Nom, dimensions, prix et lien de ton choix</small></button>` : ''}</div></div>`).join('');
   if (thumbs) applyThumbs();
 }
 function renderProject() {
@@ -1432,16 +1595,24 @@ function renderProject() {
     <dt>Volume</dt><dd>${s.vol.toFixed(1).replace('.', ',')} m³</dd>
     <dt>Équipements</dt><dd>${doc.items.length}</dd>
     <dt>Emprise des machines</dt><dd>${s.occ} %</dd>
+    ${s.free != null ? `<dt>Surface libre (hors machines et espaces d'usage)</dt><dd>${s.free.toFixed(1).replace('.', ',')} m²</dd>` : ''}
+    <dt>Poids de l'équipement</dt><dd>≈ ${Math.round(s.kg)} kg</dd>
     <dt>Ouvertures</dt><dd>${doc.openings.length}</dd>`;
+  renderVersions();
   const checks = [...analysis.global];
-  for (const it of doc.items) for (const w of analysis.items[it.id] || []) checks.push({ msg: `${CATALOG[it.type].name} : ${w.msg}`, lvl: w.lvl });
+  for (const it of doc.items) for (const w of analysis.items[it.id] || []) checks.push({ msg: `${nameOf(it)} : ${w.msg}`, lvl: w.lvl });
   $('#checkList').innerHTML = checks.length ? checks.map((c) => `<li class="${c.lvl === 'bad' ? 'bad' : ''}">${esc(c.msg)}</li>`).join('') : '<li class="good">Tout est en ordre : pas de chevauchement, ça passe sous le plafond.</li>';
 }
 function stats() {
   const { w, d, h } = doc.room;
-  let budget = 0, foot = 0;
-  for (const it of doc.items) { const def = CATALOG[it.type]; budget += def.priceOf ? def.priceOf(it) : def.price; if (!def.flat && !def.wall && !def.hang) foot += it.w * it.d; }
-  return { area: w * d, vol: w * d * h, budget, occ: Math.round((foot / (w * d)) * 100) };
+  let budget = 0, bought = 0, foot = 0, kg = 0;
+  for (const it of doc.items) {
+    const def = CATALOG[it.type], p = def.noBudget ? 0 : priceOf(it);
+    budget += p; if (it.bought) bought += p; kg += kgOf(it);
+    if (!def.flat && !def.wall && !def.hang && !def.ceiling && !def.person) foot += it.w * it.d;
+  }
+  kg += PLATE_KG.reduce((a, k) => a + k * (doc.plates[k] || 0), 0);
+  return { area: w * d, vol: w * d * h, budget, bought, kg, free: circ.free, occ: Math.round((foot / (w * d)) * 100) };
 }
 function renderStatus() {
   const s = stats(), nWarn = analysis.bad.size + analysis.global.filter((g) => g.lvl === 'bad').length;
@@ -1451,37 +1622,45 @@ function renderStatus() {
   if ($('#chipWarn')) $('#chipWarn').onclick = () => { switchTab('project'); renderProject(); };
   renderProject();
   renderListsWarn();
+  if (!drag) renderShop();
 }
 function renderListsWarn() { if (!drag) renderLists(); }
-function renderPanels() { renderRoomPanel(); renderWallCards(); renderLists(); renderProject(); }
+function renderPanels() { renderRoomPanel(); renderWallCards(); renderLists(); renderProject(); renderShop(); renderSession(); }
 
 function renderInspector() {
   const el = $('#inspector'), s = findSel();
   if (!s || ui.view === 'walk') { el.hidden = true; el.innerHTML = ''; return; }
   el.hidden = false;
   if (ui.sel.kind === 'item') {
-    const def = CATALOG[s.type], cat = CATS[def.cat], warns = analysis.items[s.id] || [];
+    const def = CATALOG[s.type], cat = CATS[def.cat], warns = analysis.items[s.id] || [], v = variantOf(s), url = urlOf(s), kg = kgOf(s), ex = exercisesOf(s);
+    const sub = def.person ? `Gabarit · taille ${cm(s.h)} cm` : `${esc(cat.label)}${def.noBudget ? '' : ' · env. ' + euro(priceOf(s))}${kg ? ' · ' + Math.round(kg) + ' kg' : ''}`;
+    const hLabel = def.person ? 'Taille' : 'Hauteur';
     el.innerHTML = `
-      <div class="insp-head"><span class="dot" style="background:${cat.color}"></span><h2>${esc(def.name)}${s.variant === 'stack' ? ' PRO' : ''}${s.evo ? ' + EVO Arm' : ''}<small>${esc(cat.label)} · env. ${euro(def.priceOf ? def.priceOf(s) : def.price)}</small></h2>
+      <div class="insp-head"><span class="dot" style="background:${cat.color}"></span><h2>${esc(nameOf(s))}<small>${sub}</small></h2>
         <button type="button" class="icon-btn" data-act="close" aria-label="Fermer"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+      ${def.custom ? `<div class="insp-grid two"><label>Nom<input type="text" data-c="label" value="${esc(s.label)}" maxlength="60"></label><label>Prix (€)<input type="number" data-c="price" value="${s.price}" min="0" step="1"></label></div>
+        <div class="insp-grid two"><label>Poids (kg)<input type="number" data-c="kg" value="${s.kg}" min="0" step="1"></label><label>Lien (https://)<input type="text" data-c="url" value="${esc(s.url || '')}" placeholder="https://"></label></div>` : ''}
+      ${def.variants ? `<span class="lbl-sm">${def.person ? 'Position' : 'Version'}</span><div class="seg seg-v" style="grid-template-columns:repeat(${Math.min(def.variants.length, 2)},1fr)">${def.variants.map((x) => `<button type="button" data-act="variant" data-v="${x.v}" class="${x.v === v.v ? 'on' : ''}">${esc(x.label)}</button>`).join('')}</div>` : ''}
       <div class="insp-grid">
         <label>Largeur<input type="number" data-f="w" value="${cm(s.w)}" min="5" step="1"></label>
-        <label>Profondeur<input type="number" data-f="d" value="${cm(s.d)}" min="${def.flat ? 1 : 5}" step="1"></label>
-        <label>Hauteur<input type="number" data-f="h" value="${cm(s.h)}" min="1" step="1"></label>
+        <label>Profondeur<input type="number" data-f="d" value="${cm(s.d)}" min="${def.flat ? 1 : 1}" step="1"></label>
+        <label>${hLabel}<input type="number" data-f="h" value="${cm(s.h)}" min="1" step="1"></label>
       </div>
-      ${def.wall && def.elev != null ? `<div class="insp-grid two"><label>Fixé à (cm du sol)<input type="number" data-f="elev" value="${cm(s.elev)}" min="0" step="1"></label><label>Mur<input type="text" value="${esc(SIDE_NAME[ROT_SIDE[normRot(s.rot)] || 'N'])}" disabled></label></div>` : `
+      ${def.text ? `<div class="insp-grid two"><label>Texte<input type="text" data-c="text" value="${esc(s.text)}" maxlength="40"></label><label>Couleur<input type="color" data-f="color" value="${s.color}"></label></div>` : ''}
+      ${def.wall && def.elev != null ? `<div class="insp-grid two"><label>Fixé à (cm du sol)<input type="number" data-f="elev" value="${cm(s.elev)}" min="0" step="1"></label><label>Mur<input type="text" value="${esc(SIDE_NAME[ROT_SIDE[normRot(s.rot)] || 'N'])}" disabled></label></div>` : def.wall || def.ceiling ? '' : `
       <span class="lbl-sm">Rotation</span>
       <div class="rot-row">
         <button type="button" class="btn" data-rot="-90" title="Maj+R : 15°">−90°</button><button type="button" class="btn" data-rot="-15">−15°</button>
         <button type="button" class="btn" data-rot="15">+15°</button><button type="button" class="btn" data-rot="90" title="Touche R">+90°</button></div>
       <div class="insp-grid two"><label>Angle (°)<input type="number" data-f="rot" value="${Math.round(s.rot)}" step="1"></label><label>Couleur<input type="color" data-f="color" value="${s.color}"></label></div>`}
-      ${def.wall ? `<div class="insp-row"><span class="lbl">Couleur</span><input type="color" data-f="color" value="${s.color}"></div>` : ''}
-      ${def.variants ? `<div class="seg seg2"><button type="button" data-act="variant" data-v="plates" class="${s.variant === 'stack' ? '' : 'on'}">Chargement disques</button><button type="button" data-act="variant" data-v="stack" class="${s.variant === 'stack' ? 'on' : ''}">PRO · pile 95 kg</button></div>` : ''}
+      ${(def.wall && !def.text) || def.ceiling ? `<div class="insp-row"><span class="lbl">Couleur</span><input type="color" data-f="color" value="${s.color}"></div>` : ''}
+      ${def.options ? `<div class="opt-list">${def.options.map((o) => `<label><input type="checkbox" data-opt="${o.key}"${optOn(s, o.key) ? ' checked' : ''}> ${esc(o.label)}${o.price ? ` <small>+${euro(o.price)}</small>` : ''}</label>`).join('')}</div>` : ''}
       ${def.evo ? `<button type="button" class="btn" data-act="evo">${s.evo ? "Retirer l'EVO Arm (−199 €)" : "Monter l'EVO Arm (+199 €)"}</button>` : ''}
-      ${def.lift ? `<div class="insp-grid two"><label>Posée à (cm du sol)<input type="number" data-f="elev" value="${cm(s.elev)}" min="0" step="1"></label></div><p class="hint">Tape 146 pour la poser sur les J-hooks d'un rack.</p>` : ''}
+      ${def.lift ? `<div class="insp-grid two"><label>Posée à (cm du sol)<input type="number" data-f="elev" value="${cm(s.elev)}" min="0" step="1"></label></div><p class="hint">Glisse la barre dans un rack : elle se pose toute seule sur les J-hooks.</p>` : ''}
       ${def.flip ? `<button type="button" class="btn" data-act="flip">Mettre la tour à ${s.flip ? 'droite' : 'gauche'}</button>` : ''}
       ${warns.length ? `<ul class="warns">${warns.map((w) => `<li class="${w.lvl === 'soft' ? 'soft' : ''}">${esc(w.msg)}</li>`).join('')}</ul>` : '<p class="goodnote">Bien placé, rien à signaler.</p>'}
-      <p class="hint">Glisse l'objet dans la vue, ou clique une cote jaune pour taper la distance au mur.</p>
+      ${ex.length ? `<details class="ex-box"><summary>Exercices possibles (${ex.length})</summary><div class="ex-chips">${ex.map((x) => `<button type="button" class="chip-btn" data-ex="${esc(x)}" title="Ajouter à ma séance">+ ${esc(x)}</button>`).join('')}</div></details>` : ''}
+      <div class="insp-links">${url ? `<a href="${esc(url)}" target="_blank" rel="noopener">Voir la fiche produit ↗</a>` : ''}${def.noBudget ? '' : `<label class="bought"><input type="checkbox" data-act="bought"${s.bought ? ' checked' : ''}> Déjà acheté</label>`}</div>
       <div class="insp-actions"><button type="button" class="btn" data-act="dup">Dupliquer</button><button type="button" class="btn danger" data-act="del">Supprimer</button></div>`;
   } else {
     const def = OPEN_DEF[s.type], L = wallInfo(s.wall).L;
@@ -1504,7 +1683,7 @@ function renderInspector() {
 
 function bindUI() {
   $$('.views button').forEach((b) => b.addEventListener('click', () => setView(b.dataset.view)));
-  $$('.tabs button').forEach((b) => b.addEventListener('click', () => { switchTab(b.dataset.tab); if (b.dataset.tab === 'project') renderProject(); }));
+  $$('.tabs button').forEach((b) => b.addEventListener('click', () => { switchTab(b.dataset.tab); if (b.dataset.tab === 'project') renderProject(); if (b.dataset.tab === 'shop') renderShop(); }));
   $('#btnUndo').addEventListener('click', undo);
   $('#btnRedo').addEventListener('click', redo);
   $('#btnShot').addEventListener('click', screenshot);
@@ -1570,14 +1749,16 @@ function bindUI() {
 
   const insp = $('#inspector');
   insp.addEventListener('click', (e) => {
-    const b = e.target.closest('[data-act],[data-rot]'); if (!b) return;
+    const exb = e.target.closest('[data-ex]');
+    if (exb) { addToSession(exb.dataset.ex, nameOf(findSel())); return; }
+    const b = e.target.closest('[data-act],[data-rot]'); if (!b || b.type === 'checkbox') return;
     if (b.dataset.rot) { rotateSel(+b.dataset.rot); return; }
     const a = b.dataset.act, s = findSel();
     if (a === 'close') select(null);
     if (a === 'dup') duplicateSel();
     if (a === 'del') deleteSel();
     if (a === 'toggle') toggleOpening(s);
-    if (a === 'variant') { if (b.dataset.v === 'stack') s.variant = 'stack'; else delete s.variant; rebuildItem(s); showSelBox(); commit(); renderInspector(); renderStatus(); }
+    if (a === 'variant') applyVariant(s, b.dataset.v);
     if (a === 'evo') {
       const sign = s.evo ? -1 : 1, th = -s.rot * DEG;
       s.evo = !s.evo; if (!s.evo) delete s.evo;
@@ -1595,7 +1776,17 @@ function bindUI() {
   });
   insp.addEventListener('change', (e) => {
     const s = findSel(); if (!s) return;
-    const f = e.target.dataset.f, o = e.target.dataset.o;
+    const t = e.target;
+    if (t.dataset.opt) { s.opts = { ...(s.opts || {}), [t.dataset.opt]: t.checked }; rebuildItem(s); showSelBox(); commit(); renderInspector(); renderLists(); return; }
+    if (t.dataset.act === 'bought') { if (t.checked) s.bought = true; else delete s.bought; commit(); renderShop(); return; }
+    if (t.dataset.c) {
+      const c = t.dataset.c;
+      if (c === 'price' || c === 'kg') s[c] = clamp(num(t.value, 0), 0, c === 'price' ? 1e6 : 5000);
+      else if (c === 'url') { if (t.value && !t.value.startsWith('https://')) { toast('Le lien doit commencer par https://'); return; } s.url = t.value.slice(0, 500); }
+      else s[c] = t.value.slice(0, c === 'text' ? 40 : 60);
+      rebuildItem(s); showSelBox(); commit(); renderInspector(); renderLists(); return;
+    }
+    const f = t.dataset.f, o = t.dataset.o;
     if (f) {
       if (f === 'color') setItem(s, { color: e.target.value });
       else { const v = parseFloat(e.target.value); if (!Number.isFinite(v)) return; setItem(s, { [f]: f === 'rot' ? v : v / 100 }); }
@@ -1608,6 +1799,50 @@ function bindUI() {
     commit(); renderInspector(); renderLists();
   });
 
+  $('#floorType').addEventListener('change', (e) => { doc.floorType = e.target.value; refreshAnalysis(); commit(); });
+  $('#catalog').addEventListener('click', (e) => { if (e.target.closest('#btnCustom')) { e.stopPropagation(); customDialog(); } }, true);
+  $('#shopList').addEventListener('change', (e) => {
+    const id = e.target.dataset.buy; if (!id) return;
+    const it = doc.items.find((i) => i.id === id); if (!it) return;
+    if (e.target.checked) it.bought = true; else delete it.bought;
+    commit(); renderShop(); renderInspector();
+  });
+  $('#plateTable').addEventListener('change', (e) => {
+    const kg = e.target.dataset.plate; if (!kg) return;
+    doc.plates[kg] = clamp(Math.round(num(e.target.value, 0)), 0, 99); commit(); renderShop(); refreshAnalysis();
+  });
+  $('#btnShopCSV').addEventListener('click', () => saveFile(`${slug()}-achats.csv`, '\ufeff' + shopCSV(), 'text/csv'));
+  $('#btnShopCopy').addEventListener('click', async () => { try { await navigator.clipboard.writeText(shopCSV().replace(/;/g, '\t').replace(/"/g, '')); toast('Liste copiée : colle-la dans un tableur'); } catch { toast('Copie impossible ici : télécharge plutôt le fichier'); } });
+  $('#sessionList').addEventListener('change', (e) => {
+    const li = e.target.closest('[data-sid]'), f = e.target.dataset.sf; if (!li || !f) return;
+    const x = doc.session.find((q) => q.id === li.dataset.sid); if (!x) return;
+    x[f] = clamp(num(e.target.value, x[f]), f === 'kg' ? 0 : 1, f === 'kg' ? 500 : f === 'sets' ? 20 : 100); commit();
+  });
+  $('#sessionList').addEventListener('click', (e) => {
+    if (!e.target.closest('[data-sdel]')) return;
+    const li = e.target.closest('[data-sid]'); doc.session = doc.session.filter((q) => q.id !== li.dataset.sid); commit(); renderSession();
+  });
+  $('#sessionForm').addEventListener('submit', (e) => { e.preventDefault(); const v = $('#sessionEx').value.trim(); if (v) { addToSession(v.slice(0, 80), ''); $('#sessionEx').value = ''; } });
+  $('#btnSessionCopy').addEventListener('click', async () => { try { await navigator.clipboard.writeText(sessionText()); toast('Séance copiée'); } catch { toast('Copie impossible ici : télécharge plutôt le fichier'); } });
+  $('#btnSessionDl').addEventListener('click', () => saveFile(`${slug()}-seance.txt`, sessionText(), 'text/plain'));
+  $('#btnSessionClear').addEventListener('click', () => { if (!doc.session.length) return; doc.session = []; commit(); renderSession(); toast('Séance vidée · Ctrl+Z pour annuler'); });
+  $('#btnVersionSave').addEventListener('click', () => {
+    const name = ($('#versionName').value.trim() || `Version du ${new Date().toLocaleDateString('fr-FR')}`).slice(0, 60);
+    const vs = loadVersions(); vs.unshift({ id: uid(), name, date: Date.now(), doc: JSON.parse(JSON.stringify(doc)) });
+    if (storeVersions(vs.slice(0, 20))) { $('#versionName').value = ''; renderVersions(); toast(`Version « ${name} » enregistrée`); }
+  });
+  $('#versionList').addEventListener('click', (e) => {
+    const li = e.target.closest('[data-vid]'); if (!li) return;
+    const vs = loadVersions(), v = vs.find((q) => q.id === li.dataset.vid); if (!v) return;
+    if (e.target.closest('[data-vload]')) loadDoc(v.doc, `Version « ${v.name} » ouverte · Ctrl+Z pour revenir`);
+    if (e.target.closest('[data-vdel]')) { storeVersions(vs.filter((q) => q !== v)); renderVersions(); toast('Version supprimée'); }
+  });
+  $('#btnShare').addEventListener('click', shareLink);
+  $('#btnPrint').addEventListener('click', printSheet);
+  $('#roCopy').addEventListener('click', () => { setReadonly(false); save(); history.replaceState(null, '', location.pathname + location.search); toast('Plan copié dans ton projet'); });
+  $$('#elevSides button').forEach((b) => b.addEventListener('click', () => { ui.elevSide = b.dataset.side; $$('#elevSides button').forEach((x) => x.classList.toggle('on', x === b)); for (const s2 of SIDES) if (cutState[s2]) { cutState[s2] = false; buildWall(s2); } fitView(); updateVisibility(); }));
+  $('#btnPanel').addEventListener('click', () => { const on = document.body.classList.toggle('panel-min'); $('#btnPanel').setAttribute('aria-pressed', String(on)); setTimeout(() => { onResize(); fitView(); }, 60); });
+  $$('.tabs button').forEach((b) => b.addEventListener('click', () => { if (document.body.classList.contains('panel-min')) { document.body.classList.remove('panel-min'); $('#btnPanel').setAttribute('aria-pressed', 'false'); setTimeout(onResize, 50); } }));
   $('#projName').addEventListener('input', (e) => { doc.name = e.target.value; });
   $('#projName').addEventListener('change', commit);
   $('#btnExport').addEventListener('click', exportJSON);
@@ -1629,6 +1864,151 @@ function bindUI() {
 }
 
 /* ---------------------------------------------------------------------------
+   Liste d'achats, disques, séance, versions
+--------------------------------------------------------------------------- */
+function renderShop() {
+  const el = $('#shopList'); if (!el) return;
+  const rows = doc.items.filter((it) => !CATALOG[it.type].noBudget);
+  const s = stats();
+  el.innerHTML = rows.length ? rows.map((it) => {
+    const url = urlOf(it);
+    return `<li class="${it.bought ? 'done' : ''}"><label><input type="checkbox" data-buy="${it.id}"${it.bought ? ' checked' : ''}><span class="name">${esc(nameOf(it))}</span></label>
+      <span class="meta">${euro(priceOf(it))}</span>${url ? `<a href="${esc(url)}" target="_blank" rel="noopener" title="Fiche produit">↗</a>` : '<span class="nolink"></span>'}</li>`;
+  }).join('') : '<li class="empty">Ajoute des équipements dans ta salle : ils apparaîtront ici.</li>';
+  $('#shopTotals').innerHTML = `<dt>Total</dt><dd class="big">${euro(s.budget)}</dd><dt>Déjà acheté</dt><dd>${euro(s.bought)}</dd><dt>Reste à acheter</dt><dd><b>${euro(s.budget - s.bought)}</b></dd>`;
+  const pl = platesOwned();
+  $('#plateTable').innerHTML = `<tr><th>Disque</th><th>Sets</th><th>En plus</th><th>Fonte</th></tr>` + PLATE_KG.map((kg) => {
+    const auto = (pl.bumper[kg] || 0) - (doc.plates[kg] || 0);
+    return `<tr><td>${String(kg).replace('.', ',')} kg</td><td>${auto || '–'}</td><td><input type="number" min="0" max="99" step="1" data-plate="${kg}" value="${doc.plates[kg] || 0}" aria-label="Disques de ${kg} kg en plus"></td><td>${pl.iron[kg] || '–'}</td></tr>`;
+  }).join('');
+  const bumperKg = PLATE_KG.reduce((a, kg) => a + kg * (pl.bumper[kg] || 0), 0), ironKg = PLATE_KG.reduce((a, kg) => a + kg * (pl.iron[kg] || 0), 0);
+  const pairs = PLATE_KG.reduce((a, kg) => a + kg * 2 * Math.floor((pl.bumper[kg] || 0) / 2), 0);
+  const hasBar = doc.items.some((it) => it.type === 'delta');
+  $('#plateSummary').innerHTML = `<dt>Disques bumper</dt><dd>${bumperKg} kg</dd><dt>Disques en fonte (haltères)</dt><dd>${ironKg} kg</dd>
+    <dt>Barre olympique chargée au maximum</dt><dd><b>${20 + pairs} kg</b></dd>`;
+  $('#plateHint').textContent = hasBar ? 'Calcul avec ta barre Delta de 20 kg et les disques par paires.' : 'Calcul avec une barre olympique de 20 kg et les disques par paires.';
+}
+function shopCSV() {
+  const lines = [['Équipement', 'Prix (€)', 'Acheté', 'Lien']];
+  for (const it of doc.items) if (!CATALOG[it.type].noBudget) lines.push([nameOf(it), priceOf(it), it.bought ? 'oui' : 'non', urlOf(it)]);
+  const s = stats(); lines.push([], ['Total', s.budget], ['Reste à acheter', s.budget - s.bought]);
+  return lines.map((l) => l.map((v) => `"${String(v ?? '').replace(/"/g, '""')}"`).join(';')).join('\n');
+}
+function addToSession(ex, on) {
+  doc.session.push({ id: uid(), ex, on: on || '', sets: 3, reps: 10, kg: 0 });
+  commit(); renderSession(); toast(`« ${ex} » ajouté à ta séance`);
+}
+function renderSession() {
+  const el = $('#sessionList'); if (!el) return;
+  el.innerHTML = doc.session.length ? doc.session.map((x, i) => `<li data-sid="${x.id}"><span class="num">${i + 1}</span><div class="ex"><b>${esc(x.ex)}</b><small>${esc(x.on)}</small></div>
+    <label>Séries<input type="number" min="1" max="20" data-sf="sets" value="${x.sets}"></label><label>Reps<input type="number" min="1" max="100" data-sf="reps" value="${x.reps}"></label><label>kg<input type="number" min="0" max="500" step="0.5" data-sf="kg" value="${x.kg}"></label>
+    <button type="button" class="icon-btn" data-sdel aria-label="Retirer"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button></li>`).join('')
+    : '<li class="empty">Sélectionne une machine dans la vue, ouvre « Exercices possibles » et clique sur un exercice pour l\'ajouter.</li>';
+}
+function sessionText() {
+  return `${doc.name} : séance\n` + doc.session.map((x, i) => `${i + 1}. ${x.ex}${x.on ? ` (${x.on})` : ''} : ${x.sets} × ${x.reps}${x.kg ? ` à ${String(x.kg).replace('.', ',')} kg` : ''}`).join('\n');
+}
+const VERSIONS_KEY = 'homegym-studio.versions';
+function loadVersions() { try { return JSON.parse(localStorage.getItem(VERSIONS_KEY) || '[]'); } catch { return []; } }
+function storeVersions(v) { try { localStorage.setItem(VERSIONS_KEY, JSON.stringify(v)); return true; } catch { toast("Impossible d'enregistrer : le stockage du navigateur est indisponible"); return false; } }
+function renderVersions() {
+  const el = $('#versionList'); if (!el) return;
+  const vs = loadVersions();
+  el.innerHTML = vs.length ? vs.map((v) => `<li data-vid="${esc(v.id)}"><span class="name">${esc(v.name)}</span><span class="meta">${new Date(v.date).toLocaleDateString('fr-FR')}</span>
+    <button type="button" class="btn" data-vload>Ouvrir</button><button type="button" class="icon-btn" data-vdel aria-label="Supprimer la version"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button></li>`).join('')
+    : '<li class="empty">Aucune version enregistrée. Enregistre l\'implantation actuelle pour la comparer à une autre.</li>';
+}
+
+/* ---------------------------------------------------------------------------
+   Téléchargements, partage, plan à imprimer
+--------------------------------------------------------------------------- */
+let downloadsCap;
+async function saveFile(filename, data, mime) {
+  if (downloadsCap === undefined) downloadsCap = window.claude?.use ? await window.claude.use('downloads').catch(() => null) : null;
+  if (downloadsCap) {
+    try { await downloadsCap.save({ filename, data }); toast('Fichier enregistré'); return; }
+    catch (err) { if (err?.code === 'declined') { toast('Téléchargement annulé'); return; } if (err?.code === 'rate_limited') { toast('Un téléchargement est déjà en cours'); return; } }
+  }
+  const blob = data instanceof Blob ? data : new Blob([data], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+  toast('Fichier téléchargé');
+}
+const slug = () => (doc.name || 'home-gym').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^\w-]+/g, '-').toLowerCase();
+const SHARE_BASE = 'https://warryks.github.io/Homegym/';
+async function packPlan(obj) {
+  const bytes = new TextEncoder().encode(JSON.stringify(obj));
+  let out = bytes, tag = 'j';
+  if (window.CompressionStream) { out = new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(new CompressionStream('deflate-raw'))).arrayBuffer()); tag = 'z'; }
+  let bin = ''; for (const b of out) bin += String.fromCharCode(b);
+  return tag + btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+async function unpackPlan(str) {
+  const tag = str[0], b64 = str.slice(1).replace(/-/g, '+').replace(/_/g, '/');
+  const bin = atob(b64), bytes = Uint8Array.from(bin, (c) => c.charCodeAt(0));
+  const raw = tag === 'z' ? new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).arrayBuffer()) : bytes;
+  return JSON.parse(new TextDecoder().decode(raw));
+}
+async function shareLink() {
+  const { session, ...plan } = doc; void session;
+  const link = SHARE_BASE + '#plan=' + (await packPlan(plan));
+  openModal('Partager le plan', `<p class="hint">Ce lien ouvre ton plan en lecture seule : la personne peut le regarder et tourner autour, sans modifier ton projet. Il fonctionne depuis la version en ligne du site (GitHub Pages).</p>
+    <textarea id="shareOut" readonly></textarea><div class="row"><button type="button" class="btn primary" id="shareCopy">Copier le lien</button></div>`);
+  const ta = $('#shareOut'); ta.value = link;
+  $('#shareCopy').onclick = async () => { try { await navigator.clipboard.writeText(link); toast('Lien copié'); } catch { ta.focus(); ta.select(); toast('Sélectionne le lien et copie-le'); } };
+}
+function setReadonly(on) {
+  ui.readonly = on;
+  $('#roBanner').hidden = !on;
+  document.body.classList.toggle('readonly', on);
+}
+function printSheet() {
+  const prev = ui.view, prevSel = ui.sel;
+  ui.sel = null; showSelBox();
+  setView('plan'); fitView(); updateCutaway();
+  coteG.visible = false;
+  renderer.render(scene, camera);
+  const img = renderer.domElement.toDataURL('image/png');
+  coteG.visible = true;
+  ui.sel = prevSel; setView(prev); showSelBox();
+  const { w: W, d: D, h: H } = doc.room, st = stats();
+  const rows = doc.items.filter((it) => !CATALOG[it.type].person).map((it) => {
+    const e = extents(it);
+    return `<tr><td>${esc(nameOf(it))}</td><td>${cm(it.w)} × ${cm(it.d)} × ${cm(it.h)}</td><td>${cm(it.x + e.x0 + W / 2)}</td><td>${cm(it.z + e.z0 + D / 2)}</td><td>${CATALOG[it.type].noBudget ? '' : euro(priceOf(it))}</td></tr>`;
+  }).join('');
+  const ops = doc.openings.map((o) => `<li>${esc(OPEN_DEF[o.type].name)} · mur ${SIDE_NAME[o.wall]} · ${cm(o.w)} × ${cm(o.h)} cm, à ${cm(o.pos)} cm ${SIDE_FROM[o.wall]}</li>`).join('');
+  openModal('Plan à imprimer', `<div id="printSheet" class="print-sheet">
+    <header><h1>${esc(doc.name)}</h1><p>Pièce ${cm(W)} × ${cm(D)} cm · ${cm(H)} cm sous plafond · ${st.area.toFixed(1).replace('.', ',')} m² · budget ≈ ${euro(st.budget)}</p></header>
+    <img src="${img}" alt="Plan vu de dessus">
+    <p class="hint">Nord en haut. Distances mesurées depuis le mur ouest (x) et le mur nord (z), au bord de chaque équipement.</p>
+    <table><thead><tr><th>Équipement</th><th>L × P × H (cm)</th><th>Depuis l'ouest</th><th>Depuis le nord</th><th>Prix</th></tr></thead><tbody>${rows}</tbody></table>
+    ${ops ? `<h3>Ouvertures</h3><ul>${ops}</ul>` : ''}</div>
+    <div class="row no-print"><button type="button" class="btn primary" id="doPrint">Imprimer ou enregistrer en PDF</button><button type="button" class="btn" id="dlPlan">Télécharger l'image du plan</button></div>
+    <p class="hint no-print">Si l'impression ne s'ouvre pas ici, ouvre le site depuis sa version en ligne (GitHub Pages).</p>`);
+  $('#doPrint').onclick = () => { try { window.print(); } catch { toast("L'impression n'est pas disponible ici"); } };
+  $('#dlPlan').onclick = async () => saveFile(`${slug()}-plan.png`, await (await fetch(img)).blob(), 'image/png');
+}
+function customDialog() {
+  openModal('Créer un équipement', `<form id="customForm" class="custom-form">
+    <label>Nom<input type="text" name="label" maxlength="60" required placeholder="Ex. : Banc à lombaires"></label>
+    <div class="insp-grid"><label>Largeur (cm)<input type="number" name="w" value="100" min="5" max="800" required></label><label>Profondeur (cm)<input type="number" name="d" value="100" min="5" max="800" required></label><label>Hauteur (cm)<input type="number" name="h" value="100" min="1" max="440" required></label></div>
+    <div class="insp-grid"><label>Prix (€)<input type="number" name="price" value="0" min="0" step="1"></label><label>Poids (kg)<input type="number" name="kg" value="0" min="0" step="1"></label><label>Couleur<input type="color" name="color" value="#5d6b7a"></label></div>
+    <label>Lien vers la fiche (facultatif)<input type="url" name="url" placeholder="https://"></label>
+    <div class="row"><button type="submit" class="btn primary">Ajouter à ma salle</button></div></form>`);
+  $('#customForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const f = new FormData(e.target), g = (k) => num(f.get(k), 0);
+    const url = String(f.get('url') || '');
+    if (url && !url.startsWith('https://')) { toast('Le lien doit commencer par https://'); return; }
+    closeModal();
+    addItem('custom', null, { label: String(f.get('label')).slice(0, 60) || 'Équipement', w: clamp(g('w') / 100, 0.05, 8), d: clamp(g('d') / 100, 0.05, 8), h: clamp(g('h') / 100, 0.01, 4.4), price: clamp(g('price'), 0, 1e6), kg: clamp(g('kg'), 0, 5000), color: String(f.get('color')), url });
+    switchTab('gear');
+  });
+}
+
+/* ---------------------------------------------------------------------------
    Capture, export, import
 --------------------------------------------------------------------------- */
 function openModal(title, html) { $('#modalTitle').textContent = title; $('#modalBody').innerHTML = html; $('#modal').hidden = false; }
@@ -1637,16 +2017,10 @@ function screenshot() {
   renderer.render(scene, camera);
   const url = renderer.domElement.toDataURL('image/png');
   const name = (doc.name || 'home-gym').replace(/[^\w\-]+/g, '-').toLowerCase();
-  openModal('Capture', `<img src="${url}" alt="Capture de la vue ${esc(ui.view)}"><div class="row"><a class="btn primary" href="${url}" download="${name}-${ui.view}.png">Télécharger l'image</a></div><p class="hint">Si le téléchargement ne se lance pas, fais un clic droit ou un appui long sur l'image pour l'enregistrer.</p>`);
+  openModal('Capture', `<img src="${url}" alt="Capture de la vue ${esc(ui.view)}"><div class="row"><button type="button" class="btn primary" id="dlShot">Télécharger l'image</button></div><p class="hint">Tu peux aussi faire un clic droit ou un appui long sur l'image pour l'enregistrer.</p>`);
+  $('#dlShot').onclick = async () => saveFile(`${name}-${ui.view}.png`, await (await fetch(url)).blob(), 'image/png');
 }
-function exportJSON() {
-  const blob = new Blob([JSON.stringify(doc, null, 2)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a'); a.href = url; a.download = (doc.name || 'home-gym').replace(/[^\w\-]+/g, '-').toLowerCase() + '.json';
-  document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 2000);
-  toast('Projet téléchargé');
-}
+function exportJSON() { saveFile(`${slug()}.json`, JSON.stringify(doc, null, 2), 'application/json'); }
 async function copyJSON() {
   const txt = JSON.stringify(doc);
   try { await navigator.clipboard.writeText(txt); toast('Code du projet copié : colle-le dans « Importer » sur un autre appareil'); }
@@ -1726,13 +2100,16 @@ function frame() {
     const target = op.open ? 1 : 0;
     if (Math.abs(o.f - target) > 1e-3) poseOpening(o, o.f + clamp(target - o.f, -dt / 2.2, dt / 2.2));
   }
-  for (const [, o] of itemObjs) for (const tk of o.g.userData.ticks || []) tk(t);
+  for (const [id, o] of itemObjs) {
+    for (const tk of o.g.userData.ticks || []) tk(t);
+    if (o.lifts.length) { const y = ui.sel?.id === id && ui.view !== 'plan' ? 0.16 * (0.5 - 0.5 * Math.cos(t * 2.2)) : 0; for (const l of o.lifts) l.position.y = y; }
+  }
   updateCutaway();
   renderer.render(scene, camera);
   labelRenderer.render(scene, camera);
 }
 
-function start() {
+async function start() {
   try { initRenderer(); }
   catch (err) {
     const l = $('#loading'); l.classList.add('error');
@@ -1746,8 +2123,11 @@ function start() {
   el.addEventListener('pointercancel', onPointerUp);
   el.addEventListener('contextmenu', (e) => e.preventDefault());
   makeControls();
-  doc = loadSaved() || normalizeDoc(PRESETS.double());
-  const legacy = !doc.migr.includes('r8drift');
+  let shared = null;
+  if (location.hash.startsWith('#plan=')) { try { shared = normalizeDoc(await unpackPlan(location.hash.slice(6))); } catch { toast("Ce lien de partage n'est pas lisible"); } }
+  doc = shared || loadSaved() || normalizeDoc(PRESETS.double());
+  if (shared) setReadonly(true);
+  const legacy = !shared && !doc.migr.includes('r8drift');
   if (legacy) doc.migr.push('r8drift');
   bindUI();
   renderCatalog();
@@ -1769,6 +2149,10 @@ function start() {
   onResize(); fitView();
   frame();
   makeThumbs();
+  // Accès réservé aux tests automatiques (tests/smoke.mjs), seulement avec ?test dans l'adresse.
+  if (new URLSearchParams(location.search).has('test')) {
+    window.__homegymTest = { doc: () => doc, analysis: () => analysis, addItem, select, setView, snapToHooks, placeItemObj, refreshAnalysis, footprint, nameOf, priceOf, CATALOG, loadDoc, PRESETS, normalizeDoc, packPlan, unpackPlan };
+  }
   $('#loading').hidden = true;
 }
 start();

@@ -182,6 +182,38 @@ export function drawTurf(c, w, h, r) {
   for (let i = 0; i < 9000; i++) { c.strokeStyle = cols[Math.floor(r() * cols.length)]; c.lineWidth = 1.2; c.beginPath(); const x = r() * w, y = r() * h; c.moveTo(x, y); c.lineTo(x + (r() - 0.5) * 3, y - 3 - r() * 4); c.stroke(); }
 }
 
+export function drawEnduit(c, w, h, r) {
+  c.fillStyle = '#f2efe9'; c.fillRect(0, 0, w, h);
+  blotches(c, w, h, 70, r, '120,110,95', 0.06, w * 0.12);
+  for (let i = 0; i < 900; i++) {
+    c.strokeStyle = `rgba(${r() < 0.5 ? '255,255,255' : '90,80,70'},${(0.05 + r() * 0.07).toFixed(3)})`; c.lineWidth = 1 + r() * 3;
+    const x = r() * w, y = r() * h, a = r() * Math.PI, l = 10 + r() * 30;
+    c.beginPath(); c.moveTo(x, y); c.quadraticCurveTo(x + Math.cos(a) * l * 0.5, y + Math.sin(a) * l * 0.2, x + Math.cos(a) * l, y + Math.sin(a) * l * 0.4); c.stroke();
+  }
+  grain(c, w, h, 10, r);
+}
+export function drawBoisClair(c, w, h, r) {
+  const rows = 6, ph = h / rows;
+  for (let y = 0; y < rows; y++) {
+    let x = -r() * w * 0.4;
+    while (x < w) {
+      const len = w * (0.45 + r() * 0.5), j = (r() - 0.5) * 18;
+      c.fillStyle = `rgb(${226 + j},${200 + j * 0.8},${160 + j * 0.6})`; c.fillRect(x, y * ph, len, ph);
+      woodGrain(c, x, y * ph, len, ph, r, false, 5);
+      c.fillStyle = 'rgba(110,80,45,.35)'; c.fillRect(x, y * ph, 1.5, ph);
+      x += len;
+    }
+    c.fillStyle = 'rgba(110,80,45,.4)'; c.fillRect(0, y * ph, w, 2);
+  }
+  grain(c, w, h, 6, r);
+}
+export function drawBetonCire(c, w, h, r) {
+  c.fillStyle = '#b9b6b0'; c.fillRect(0, 0, w, h);
+  blotches(c, w, h, 90, r, '90,86,80', 0.1, w * 0.16);
+  blotches(c, w, h, 60, r, '255,255,255', 0.1, w * 0.12);
+  grain(c, w, h, 8, r);
+}
+
 export const WALL_SURF = {
   paint: { label: 'Peinture', color: '#e4e1db', size: [1, 1], rough: 0.95, draw: (c, w, h, r) => { c.fillStyle = '#fff'; c.fillRect(0, 0, w, h); grain(c, w, h, 10, r); } },
   brick: { label: 'Brique', color: '#ffffff', size: [0.9, 0.6], rough: 0.9, draw: (c, w, h, r) => drawBrick(c, w, h, r, { mortar: '#b9b1a5', base: [[150, 70, 50], [128, 58, 42], [166, 86, 60], [112, 52, 40]] }) },
@@ -192,6 +224,9 @@ export const WALL_SURF = {
   tiles: { label: 'Carrelage métro', color: '#ffffff', size: [0.6, 0.6], rough: 0.3, draw: drawMetro },
   metal: { label: 'Bac acier', color: '#c3c8ce', size: [1, 1], rough: 0.45, metal: 0.5, draw: drawRibs },
   foam: { label: 'Mousse acoustique', color: '#4a4d54', size: [0.5, 0.5], rough: 1, draw: drawFoam },
+  enduit: { label: 'Enduit à la chaux', color: '#ffffff', size: [1.5, 1.5], rough: 0.95, draw: drawEnduit },
+  boisclair: { label: 'Bardage bois clair', color: '#ffffff', size: [1.2, 0.9], rough: 0.7, draw: drawBoisClair },
+  betoncire: { label: 'Béton ciré', color: '#ffffff', size: [2, 2], rough: 0.45, draw: drawBetonCire },
 };
 export const FLOOR_SURF = {
   rubber: { label: 'Dalles caoutchouc', color: '#2e2f33', size: [1, 1], rough: 0.88, draw: drawRubber },
@@ -200,6 +235,7 @@ export const FLOOR_SURF = {
   concrete: { label: 'Béton lissé', color: '#ffffff', size: [3, 3], rough: 0.7, draw: drawConcreteFloor },
   parquet: { label: 'Parquet chêne', color: '#ffffff', size: [1.2, 1.2], rough: 0.55, draw: drawParquet },
   turf: { label: 'Gazon synthétique', color: '#ffffff', size: [1, 1], rough: 1, draw: drawTurf },
+  betoncire: { label: 'Béton ciré', color: '#ffffff', size: [2, 2], rough: 0.25, draw: drawBetonCire },
 };
 
 export const texCache = new Map();
